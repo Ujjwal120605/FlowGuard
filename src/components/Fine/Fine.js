@@ -1,4 +1,5 @@
 import React from "react";
+import emailjs from '@emailjs/browser';
 
 export default class Fine extends React.Component {
   constructor(props) {
@@ -14,6 +15,9 @@ export default class Fine extends React.Component {
       fineAmount: "",
       fineReason: "",
       fineSent: false,
+      emailSending: false,
+      emailError: "",
+      emailSuccess: false,
       
       // UI state
       activeTab: "details",
@@ -24,6 +28,8 @@ export default class Fine extends React.Component {
 
   componentDidMount() {
     this.updateStats();
+    // Initialize EmailJS with your public key
+    emailjs.init("k2dBL5Xibrgd0zTSF");
   }
 
   updateStats = () => {
@@ -78,11 +84,57 @@ export default class Fine extends React.Component {
       isVerified: true,
       searchError: "",
       fineSent: false,
+      emailError: "",
+      emailSuccess: false,
       activeTab: "details"
     });
   };
 
-  sendFine = () => {
+  sendEmailNotification = async (fineDetails) => {
+    const { vehicleData } = this.state;
+    
+    // Prepare template parameters matching your EmailJS template
+    const templateParams = {
+      owner_name: vehicleData.name,
+      vehicle_number: vehicleData.vehicleNumber,
+      vehicle_model: vehicleData.model,
+      vehicle_color: vehicleData.color || "N/A",
+      fine_amount: fineDetails.amount,
+      fine_reason: fineDetails.reason,
+      fine_date: new Date(fineDetails.date).toLocaleDateString("en-IN"),
+      email: vehicleData.email || "ujjwalbajpai.ec23@rvce.edu.in", // Fallback email
+      name: vehicleData.name
+    };
+
+    try {
+      this.setState({ emailSending: true, emailError: "", emailSuccess: false });
+
+      const response = await emailjs.send(
+        "service_jg2v1lf",           // Your Service ID
+        "template_5kykldb",           // Your Template ID
+        templateParams
+      );
+
+      console.log("Email sent successfully!", response);
+      this.setState({ 
+        emailSuccess: true, 
+        emailSending: false,
+        emailError: ""
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      this.setState({ 
+        emailSending: false,
+        emailError: "Failed to send email notification. Fine saved but notification failed.",
+        emailSuccess: false
+      });
+      return false;
+    }
+  };
+
+  sendFine = async () => {
     const { fineAmount, fineReason, vehicleData } = this.state;
 
     if (!fineAmount || parseFloat(fineAmount) <= 0) {
@@ -95,6 +147,15 @@ export default class Fine extends React.Component {
       return;
     }
 
+    // Create fine object
+    const newFine = {
+      amount: parseFloat(fineAmount),
+      reason: fineReason,
+      date: new Date().toISOString(),
+      status: "pending",
+      issuedBy: "Traffic Department"
+    };
+
     // Update vehicle with fine
     const registry = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
     const updatedRegistry = registry.map(v => {
@@ -103,13 +164,7 @@ export default class Fine extends React.Component {
           ...v,
           fineHistory: [
             ...(v.fineHistory || []),
-            {
-              amount: parseFloat(fineAmount),
-              reason: fineReason,
-              date: new Date().toISOString(),
-              status: "pending",
-              issuedBy: "Traffic Department"
-            }
+            newFine
           ]
         };
       }
@@ -117,6 +172,9 @@ export default class Fine extends React.Component {
     });
 
     localStorage.setItem("vehicle_registry", JSON.stringify(updatedRegistry));
+
+    // Send email notification
+    await this.sendEmailNotification(newFine);
 
     // Update local state
     const updatedVehicle = updatedRegistry.find(
@@ -130,7 +188,13 @@ export default class Fine extends React.Component {
       vehicleData: updatedVehicle
     });
 
-    setTimeout(() => this.setState({ fineSent: false }), 3000);
+    setTimeout(() => {
+      this.setState({ 
+        fineSent: false,
+        emailSuccess: false,
+        emailError: ""
+      });
+    }, 5000);
   };
 
   reportFound = () => {
@@ -185,6 +249,9 @@ export default class Fine extends React.Component {
       fineAmount,
       fineReason,
       fineSent,
+      emailSending,
+      emailError,
+      emailSuccess,
       activeTab,
       totalVehicles,
       missingVehicles
@@ -297,19 +364,19 @@ export default class Fine extends React.Component {
                     <h3 style={styles.sectionTitle}>Vehicle Information</h3>
                     <div style={styles.infoGrid}>
                       <div style={styles.infoItem}>
-                        <label>Registration Number</label>
-                        <strong>{vehicleData.vehicleNumber}</strong>
+                        <label style={styles.infoLabel}>Registration Number</label>
+                        <strong style={styles.infoValue}>{vehicleData.vehicleNumber}</strong>
                       </div>
                       <div style={styles.infoItem}>
-                        <label>Model</label>
-                        <strong>{vehicleData.model}</strong>
+                        <label style={styles.infoLabel}>Model</label>
+                        <strong style={styles.infoValue}>{vehicleData.model}</strong>
                       </div>
                       <div style={styles.infoItem}>
-                        <label>Color</label>
-                        <strong>{vehicleData.color || "N/A"}</strong>
+                        <label style={styles.infoLabel}>Color</label>
+                        <strong style={styles.infoValue}>{vehicleData.color || "N/A"}</strong>
                       </div>
                       <div style={styles.infoItem}>
-                        <label>Status</label>
+                        <label style={styles.infoLabel}>Status</label>
                         <span
                           style={
                             vehicleData.status === "missing"
@@ -321,12 +388,12 @@ export default class Fine extends React.Component {
                         </span>
                       </div>
                       <div style={styles.infoItem}>
-                        <label>Registration Date</label>
-                        <strong>{vehicleData.registrationDate || "N/A"}</strong>
+                        <label style={styles.infoLabel}>Registration Date</label>
+                        <strong style={styles.infoValue}>{vehicleData.registrationDate || "N/A"}</strong>
                       </div>
                       <div style={styles.infoItem}>
-                        <label>Insurance Expiry</label>
-                        <strong>{vehicleData.insuranceExpiry || "N/A"}</strong>
+                        <label style={styles.infoLabel}>Insurance Expiry</label>
+                        <strong style={styles.infoValue}>{vehicleData.insuranceExpiry || "N/A"}</strong>
                       </div>
                     </div>
                   </div>
@@ -338,29 +405,29 @@ export default class Fine extends React.Component {
                       <div style={styles.ownerItem}>
                         <span style={styles.ownerIcon}>👤</span>
                         <div>
-                          <label>Name</label>
-                          <strong>{vehicleData.name}</strong>
+                          <label style={styles.infoLabel}>Name</label>
+                          <strong style={styles.infoValue}>{vehicleData.name}</strong>
                         </div>
                       </div>
                       <div style={styles.ownerItem}>
                         <span style={styles.ownerIcon}>📱</span>
                         <div>
-                          <label>Phone</label>
-                          <strong>{vehicleData.phone}</strong>
+                          <label style={styles.infoLabel}>Phone</label>
+                          <strong style={styles.infoValue}>{vehicleData.phone}</strong>
                         </div>
                       </div>
                       <div style={styles.ownerItem}>
                         <span style={styles.ownerIcon}>📧</span>
                         <div>
-                          <label>Email</label>
-                          <strong>{vehicleData.email || "N/A"}</strong>
+                          <label style={styles.infoLabel}>Email</label>
+                          <strong style={styles.infoValue}>{vehicleData.email || "N/A"}</strong>
                         </div>
                       </div>
                       <div style={styles.ownerItem}>
                         <span style={styles.ownerIcon}>📍</span>
                         <div>
-                          <label>Address</label>
-                          <strong>{vehicleData.address}</strong>
+                          <label style={styles.infoLabel}>Address</label>
+                          <strong style={styles.infoValue}>{vehicleData.address}</strong>
                         </div>
                       </div>
                     </div>
@@ -406,15 +473,41 @@ export default class Fine extends React.Component {
               {/* Fine Tab */}
               {activeTab === "fine" && (
                 <div style={styles.tabContent}>
-                  {fineSent && (
+                  {/* Email Notifications */}
+                  {emailSending && (
+                    <div style={styles.infoAlert}>
+                      <div style={styles.spinner}></div>
+                      <span>Sending email notification...</span>
+                    </div>
+                  )}
+
+                  {emailSuccess && (
                     <div style={styles.successAlert}>
                       <span>✅</span>
-                      <span>Fine issued successfully!</span>
+                      <div>
+                        <strong>Fine issued successfully!</strong>
+                        <p style={styles.alertSubtext}>Email notification sent to {vehicleData.email || vehicleData.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {emailError && (
+                    <div style={styles.warningAlert}>
+                      <span>⚠️</span>
+                      <div>
+                        <strong>Fine saved but email failed</strong>
+                        <p style={styles.alertSubtext}>{emailError}</p>
+                      </div>
                     </div>
                   )}
 
                   <div style={styles.section}>
-                    <h3 style={styles.sectionTitle}>Issue Traffic Fine</h3>
+                    <h3 style={styles.sectionTitle}>
+                      Issue Traffic Fine
+                      <span style={styles.emailInfo}>
+                        ✉️ Notification will be sent to: {vehicleData.email || "ujjwalbajpai.ec23@rvce.edu.in"}
+                      </span>
+                    </h3>
 
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>Fine Amount (₹) *</label>
@@ -471,9 +564,13 @@ export default class Fine extends React.Component {
                       </div>
                     </div>
 
-                    <button onClick={this.sendFine} style={styles.submitButton}>
+                    <button 
+                      onClick={this.sendFine} 
+                      style={styles.submitButton}
+                      disabled={emailSending}
+                    >
                       <span>💰</span>
-                      Issue Fine
+                      {emailSending ? "Sending..." : "Issue Fine & Send Email"}
                     </button>
                   </div>
                 </div>
@@ -504,7 +601,8 @@ const styles = {
     justifyContent: "center",
     padding: "40px 20px",
     backgroundColor: "#f3f4f6",
-    minHeight: "100vh"
+    minHeight: "100vh",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
   },
   card: {
     width: "100%",
@@ -590,7 +688,8 @@ const styles = {
     border: "2px solid #e5e7eb",
     borderRadius: "10px",
     outline: "none",
-    fontFamily: "inherit"
+    fontFamily: "inherit",
+    transition: "border-color 0.3s"
   },
   searchButton: {
     padding: "14px 32px",
@@ -623,16 +722,53 @@ const styles = {
   },
   successAlert: {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: "12px",
-    padding: "14px 18px",
+    padding: "16px 18px",
     backgroundColor: "#dcfce7",
     border: "2px solid #86efac",
     borderRadius: "10px",
     color: "#166534",
     marginBottom: "24px",
+    fontSize: "15px"
+  },
+  warningAlert: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    padding: "16px 18px",
+    backgroundColor: "#fef3c7",
+    border: "2px solid #fcd34d",
+    borderRadius: "10px",
+    color: "#92400e",
+    marginBottom: "24px",
+    fontSize: "15px"
+  },
+  infoAlert: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "14px 18px",
+    backgroundColor: "#dbeafe",
+    border: "2px solid #93c5fd",
+    borderRadius: "10px",
+    color: "#1e40af",
+    marginBottom: "24px",
     fontSize: "15px",
-    fontWeight: "600"
+    fontWeight: "500"
+  },
+  alertSubtext: {
+    margin: "4px 0 0 0",
+    fontSize: "13px",
+    opacity: 0.9
+  },
+  spinner: {
+    width: "20px",
+    height: "20px",
+    border: "3px solid #93c5fd",
+    borderTop: "3px solid #1e40af",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite"
   },
   detailsContainer: {
     marginTop: "24px"
@@ -722,7 +858,17 @@ const styles = {
     color: "#374151",
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "12px"
+  },
+  emailInfo: {
+    fontSize: "13px",
+    color: "#6b7280",
+    fontWeight: "500",
+    backgroundColor: "#e0e7ff",
+    padding: "6px 12px",
+    borderRadius: "6px"
   },
   infoGrid: {
     display: "grid",
@@ -737,6 +883,18 @@ const styles = {
     backgroundColor: "white",
     borderRadius: "8px",
     border: "1px solid #e5e7eb"
+  },
+  infoLabel: {
+    fontSize: "12px",
+    color: "#6b7280",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px"
+  },
+  infoValue: {
+    fontSize: "15px",
+    color: "#111827",
+    fontWeight: "600"
   },
   ownerGrid: {
     display: "grid",
@@ -846,7 +1004,8 @@ const styles = {
     border: "2px solid #e5e7eb",
     borderRadius: "8px",
     outline: "none",
-    fontFamily: "inherit"
+    fontFamily: "inherit",
+    transition: "border-color 0.3s"
   },
   textarea: {
     padding: "12px 16px",
@@ -855,7 +1014,8 @@ const styles = {
     borderRadius: "8px",
     outline: "none",
     fontFamily: "inherit",
-    resize: "vertical"
+    resize: "vertical",
+    transition: "border-color 0.3s"
   },
   quickReasons: {
     marginBottom: "20px"

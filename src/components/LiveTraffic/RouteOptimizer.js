@@ -316,7 +316,7 @@ export default class RouteOptimizer extends Component {
           <p style={styles.subtitle}>Find the fastest route through Bangalore - Powered by OpenRouteService</p>
           
           <div style={{...styles.statusBadge, background: '#d1fae5', color: '#065f46'}}>
-            ✅ Free API - No Billing Required!
+            Search for distances and Directions
           </div>
         </div>
 

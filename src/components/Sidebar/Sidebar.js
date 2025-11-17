@@ -1,173 +1,201 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Badge } from 'antd';
 import Logo from './Logo';
 import traffic_icon from '../../images/traffic_icon.png';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-export default class Sidebar extends Component {
-  state = {
-    collapsed: false,
-    selectedKey: '1'
-  };
+const Sidebar = () => {
+  const [selectedKey, setSelectedKey] = useState('1');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  componentDidMount() {
+  useEffect(() => {
     // Set selected key based on current route
-    const path = window.location.pathname;
-    if (path === '/') this.setState({ selectedKey: '1' });
-    else if (path === '/stats') this.setState({ selectedKey: '2' });
-    else if (path === '/fine') this.setState({ selectedKey: '3' });
-    else if (path === '/vehicleRegisteration') this.setState({ selectedKey: '4' });
-    else if (path === '/routes') this.setState({ selectedKey: '5' });
-  }
+    const path = location.pathname;
+    if (path === '/livetraffic') setSelectedKey('1');
+    else if (path === '/stats') setSelectedKey('3');
+    else if (path === '/fine') setSelectedKey('4');
+    else if (path === '/vehicleRegisteration') setSelectedKey('5');
+    else if (path === '/routes') setSelectedKey('2');
+  }, [location.pathname]);
 
-  render() {
-    const { selectedKey } = this.state;
+  return (
+    <Layout.Sider 
+      style={styles.sider}
+      width={280}
+    >
+      {/* Header Section */}
+      <div style={styles.header}>
+        <Logo />
+        <div style={styles.projectTitle}>
+          <h2 style={styles.mainTitle}>FlowGuard AI</h2>
+          <p style={styles.subtitle}>Intelligent Traffic Management System by Ujjwal Bajpai</p>
+        </div>
+      </div>
 
-    return (
-      <Layout.Sider 
-        style={styles.sider}
-        width={280}
+      {/* Divider */}
+      <div style={styles.divider}></div>
+
+      {/* Back to Home Button */}
+      <button
+        onClick={() => navigate('/landing')}
+        style={{
+          width: '90%',
+          margin: '16px auto',
+          padding: '12px 20px',
+          background: 'linear-gradient(135deg, #5227FF 0%, #7c3aed 100%)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          transition: 'all 0.3s ease',
+          boxShadow: '0 4px 12px rgba(82, 39, 255, 0.3)'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(82, 39, 255, 0.5)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(82, 39, 255, 0.3)';
+        }}
       >
-        {/* Header Section */}
-        <div style={styles.header}>
-          <Logo />
-          <div style={styles.projectTitle}>
-            <h2 style={styles.mainTitle}>FlowGuard AI</h2>
-            <p style={styles.subtitle}>Intelligent Traffic Management System</p>
-          </div>
-        </div>
+        ← Back to Home
+      </button>
 
-        {/* Divider */}
-        <div style={styles.divider}></div>
-
-        {/* Navigation Menu */}
-        <Menu 
-          style={styles.menu} 
-          mode="inline" 
-          selectedKeys={[selectedKey]}
-          onClick={({ key }) => this.setState({ selectedKey: key })}
-        >
-          <Menu.Item key="1" style={styles.menuItem}>
-            <Link to="/" style={styles.menuLink}>
-              <div style={styles.menuItemContent}>
-                <div style={styles.iconWrapper}>
-                  <img src={traffic_icon} style={styles.icon} alt="Live Traffic" />
-                </div>
-                <div style={styles.textWrapper}>
-                  <span style={styles.menuText}>Live Traffic Monitor</span>
-                  <span style={styles.menuDescription}>Real-time traffic surveillance</span>
-                </div>
+      {/* Navigation Menu */}
+      <Menu 
+        style={styles.menu} 
+        mode="inline" 
+        selectedKeys={[selectedKey]}
+        onClick={({ key }) => setSelectedKey(key)}
+      >
+        <Menu.Item key="1" style={styles.menuItem}>
+          <Link to="/livetraffic" style={styles.menuLink}>
+            <div style={styles.menuItemContent}>
+              <div style={styles.iconWrapper}>
+                <img src={traffic_icon} style={styles.icon} alt="Live Traffic" />
               </div>
-            </Link>
-          </Menu.Item>
+              <div style={styles.textWrapper}>
+                <span style={styles.menuText}>Live Traffic Monitor</span>
+                <span style={styles.menuDescription}>Real-time traffic surveillance</span>
+              </div>
+            </div>
+          </Link>
+        </Menu.Item>
 
-          <Menu.Item key="2" style={styles.menuItem}>
-            <Link to="/stats" style={styles.menuLink}>
-              <div style={styles.menuItemContent}>
-                <div style={styles.iconWrapper}>
-                  <img 
-                    src='https://image.flaticon.com/icons/svg/138/138351.svg' 
-                    style={styles.icon} 
-                    alt="Statistics"
-                  />
-                </div>
-                <div style={styles.textWrapper}>
-                  <span style={styles.menuText}>Analytics Dashboard</span>
-                  <span style={styles.menuDescription}>Traffic insights & predictions</span>
-                </div>
-                <Badge 
-                  count="ML" 
-                  style={{ 
-                    backgroundColor: '#52c41a', 
-                    fontSize: '10px',
-                    height: '18px',
-                    lineHeight: '18px',
-                    marginLeft: 'auto'
-                  }} 
+        <Menu.Item key="2" style={styles.menuItem}>
+          <Link to="/routes" style={styles.menuLink}>
+            <div style={styles.menuItemContent}>
+              <div style={styles.iconWrapper}>
+                <img 
+                  src='https://image.flaticon.com/icons/svg/149/149058.svg' 
+                  style={styles.icon} 
+                  alt="Route Optimizer"
                 />
               </div>
-            </Link>
-          </Menu.Item>
-
-          <Menu.Item key="3" style={styles.menuItem}>
-            <Link to="/fine" style={styles.menuLink}>
-              <div style={styles.menuItemContent}>
-                <div style={styles.iconWrapper}>
-                  <img 
-                    src='https://image.flaticon.com/icons/svg/584/584035.svg' 
-                    style={styles.icon} 
-                    alt="Fine"
-                  />
-                </div>
-                <div style={styles.textWrapper}>
-                  <span style={styles.menuText}>Violation Management</span>
-                  <span style={styles.menuDescription}>Fine processing & records</span>
-                </div>
+              <div style={styles.textWrapper}>
+                <span style={styles.menuText}>Route Optimizer</span>
+                <span style={styles.menuDescription}>Navigation & alternate routes</span>
               </div>
-            </Link>
-          </Menu.Item>
+              <Badge 
+                count="NEW" 
+                style={{ 
+                  backgroundColor: '#ff4d4f', 
+                  fontSize: '10px',
+                  height: '18px',
+                  lineHeight: '18px',
+                  marginLeft: 'auto'
+                }} 
+              />
+            </div>
+          </Link>
+        </Menu.Item>
 
-          <Menu.Item key="4" style={styles.menuItem}>
-            <Link to="/vehicleRegisteration" style={styles.menuLink}>
-              <div style={styles.menuItemContent}>
-                <div style={styles.iconWrapper}>
-                  <img  
-                    style={styles.icon} 
-                    src={require('./register.svg')}
-                    alt="Registration"
-                  />
-                </div>
-                <div style={styles.textWrapper}>
-                  <span style={styles.menuText}>Vehicle Registry</span>
-                  <span style={styles.menuDescription}>Registration & database</span>
-                </div>
-              </div>
-            </Link>
-          </Menu.Item>
-
-          <Menu.Item key="5" style={styles.menuItem}>
-            <Link to="/routes" style={styles.menuLink}>
-              <div style={styles.menuItemContent}>
-                <div style={styles.iconWrapper}>
-                  <img 
-                    src='https://image.flaticon.com/icons/svg/149/149058.svg' 
-                    style={styles.icon} 
-                    alt="Route Optimizer"
-                  />
-                </div>
-                <div style={styles.textWrapper}>
-                  <span style={styles.menuText}>Route Optimizer</span>
-                  <span style={styles.menuDescription}>Navigation & alternate routes</span>
-                </div>
-                <Badge 
-                  count="NEW" 
-                  style={{ 
-                    backgroundColor: '#ff4d4f', 
-                    fontSize: '10px',
-                    height: '18px',
-                    lineHeight: '18px',
-                    marginLeft: 'auto'
-                  }} 
+        <Menu.Item key="3" style={styles.menuItem}>
+          <Link to="/stats" style={styles.menuLink}>
+            <div style={styles.menuItemContent}>
+              <div style={styles.iconWrapper}>
+                <img 
+                  src='https://image.flaticon.com/icons/svg/138/138351.svg' 
+                  style={styles.icon} 
+                  alt="Statistics"
                 />
               </div>
-            </Link>
-          </Menu.Item>
-        </Menu>
+              <div style={styles.textWrapper}>
+                <span style={styles.menuText}>Analytics Dashboard</span>
+                <span style={styles.menuDescription}>Traffic insights & predictions</span>
+              </div>
+              <Badge 
+                count="ML" 
+                style={{ 
+                  backgroundColor: '#52c41a', 
+                  fontSize: '10px',
+                  height: '18px',
+                  lineHeight: '18px',
+                  marginLeft: 'auto'
+                }} 
+              />
+            </div>
+          </Link>
+        </Menu.Item>
 
-        {/* Footer Section */}
-        <div style={styles.footer}>
-          <div style={styles.statusIndicator}>
-            <div style={styles.statusDot}></div>
-            <span style={styles.statusText}>System Online</span>
-          </div>
-          <div style={styles.versionInfo}>
-            <span style={styles.versionText}>v2.4.0</span>
-          </div>
+        <Menu.Item key="4" style={styles.menuItem}>
+          <Link to="/fine" style={styles.menuLink}>
+            <div style={styles.menuItemContent}>
+              <div style={styles.iconWrapper}>
+                <img 
+                  src='https://image.flaticon.com/icons/svg/584/584035.svg' 
+                  style={styles.icon} 
+                  alt="Fine"
+                />
+              </div>
+              <div style={styles.textWrapper}>
+                <span style={styles.menuText}>Violation Management</span>
+                <span style={styles.menuDescription}>Fine processing & records</span>
+              </div>
+            </div>
+          </Link>
+        </Menu.Item>
+
+        <Menu.Item key="5" style={styles.menuItem}>
+          <Link to="/vehicleRegisteration" style={styles.menuLink}>
+            <div style={styles.menuItemContent}>
+              <div style={styles.iconWrapper}>
+                <img  
+                  style={styles.icon} 
+                  src={require('./register.svg')}
+                  alt="Registration"
+                />
+              </div>
+              <div style={styles.textWrapper}>
+                <span style={styles.menuText}>Vehicle Registry</span>
+                <span style={styles.menuDescription}>Registration & database</span>
+              </div>
+            </div>
+          </Link>
+        </Menu.Item>
+      </Menu>
+
+      {/* Footer Section */}
+      <div style={styles.footer}>
+        <div style={styles.statusIndicator}>
+          <div style={styles.statusDot}></div>
+          <span style={styles.statusText}>System Online</span>
         </div>
-      </Layout.Sider>
-    );
-  }
-}
+        <div style={styles.versionInfo}>
+          <span style={styles.versionText}>v2.4.0</span>
+        </div>
+      </div>
+    </Layout.Sider>
+  );
+};
 
 const styles = {
   sider: {
@@ -345,3 +373,5 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
+
+export default Sidebar;

@@ -1271,6 +1271,11 @@
   "resolved" "https://registry.npmjs.org/@csstools/selector-specificity/-/selector-specificity-2.2.0.tgz"
   "version" "2.2.0"
 
+"@emailjs/browser@^4.4.1":
+  "integrity" "sha512-DGSlP9sPvyFba3to2A50kDtZ+pXVp/0rhmqs2LmbMS3I5J8FSOgLwzY2Xb4qfKlOVHh29EAutLYwe5yuEZmEFg=="
+  "resolved" "https://registry.npmjs.org/@emailjs/browser/-/browser-4.4.1.tgz"
+  "version" "4.4.1"
+
 "@emotion/hash@^0.8.0":
   "integrity" "sha512-kBJtf7PH6aWwZ6fka3zQ0p6SBYzx4fl1LoZXE2RrnYST9Xljm7WfKJrU4g/Xr3Beg72MLrp1AWNUmuYJTL7Cow=="
   "resolved" "https://registry.npmjs.org/@emotion/hash/-/hash-0.8.0.tgz"
@@ -5233,6 +5238,11 @@
   "integrity" "sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag=="
   "resolved" "https://registry.npmjs.org/graphemer/-/graphemer-1.4.0.tgz"
   "version" "1.4.0"
+
+"gsap@^3.13.0":
+  "integrity" "sha512-QL7MJ2WMjm1PHWsoFrAQH/J8wUeqZvMtHO58qdekHpCfhvhSL4gSiz6vJf5EeMP0LOn3ZCprL2ki/gjED8ghVw=="
+  "resolved" "https://registry.npmjs.org/gsap/-/gsap-3.13.0.tgz"
+  "version" "3.13.0"
 
 "gzip-size@^6.0.0":
   "integrity" "sha512-ax7ZYomf6jqPTQ4+XCpUGyXKHk5WweS+e05MBO4/y3WJ5RkmPXNKvX+bx1behVILVwr6JSQvZAku021CHPXG3Q=="
