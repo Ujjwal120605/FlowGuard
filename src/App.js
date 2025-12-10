@@ -47,7 +47,7 @@ class App extends Component {
                 </Header>
 
                 <Content style={{ padding: 20 }}>
-                  <div style={styles.card}>
+                  <div style={styles.card} className="glass-card">
                     <Routes>
                       <Route path="/livetraffic" element={<LiveTraffic />} />
                       <Route path="/vehicleRegisteration" element={<RegisterationForm />} />
@@ -73,12 +73,13 @@ const styles = {
   card: {
     width: '100%',
     height: 'calc(90vh)',
-    background: 'white',
-    boxShadow: '0px 2px 15px rgba(0,0,0,.2)',
-    borderRadius: '3px'
+    // Glassmorphism applied via CSS class 'glass-card'
+    // background: 'white', // Removed
+    // boxShadow: '0px 2px 15px rgba(0,0,0,.2)', // Removed
+    // borderRadius: '3px' // Removed
   },
   header: {
-    backgroundColor: 'green',
+    backgroundColor: 'transparent', // Let the body background show through
   }
 };
 

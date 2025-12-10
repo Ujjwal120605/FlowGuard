@@ -1,20 +1,82 @@
 import React, { Component, Fragment } from 'react';
 import GoogleMapReact from 'google-map-react';
-import Trafficlight from './Trafficlight';
 
-// Simple Car Marker Component
-// Simple Car Marker Component
-// Simple Car Marker Componentk
-const CarMarker = ({ color }) => (
-  <div style={{
-    fontSize: '16px',
-    filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.3))`,
-    animation: 'carBlink 2s ease-in-out infinite',
-    transform: 'translate(-50%, -50%)'
-  }}>
-    🚗
-  </div>
-);
+// Simple Car Marker Component - optimized for performance
+const CarMarker = ({ color, speed = 'normal' }) => {
+  return (
+    <div style={{
+      fontSize: '16px',
+      filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.3))`,
+      transform: 'translate(-50%, -50%)',
+      opacity: 0.8
+    }}>
+      🚗
+    </div>
+  );
+};
+
+// Enhanced Traffic Light Component
+const Trafficlight = ({ color, count, lat, lng, name, congestionLevel }) => {
+  // Don't render Electronic City to reduce clutter
+  if (name === 'Electronic City') return null;
+  
+  const lightSize = name ? 20 : 14;
+  const glowIntensity = 10;
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      transform: 'translate(-50%, -50%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '6px',
+      zIndex: name ? 1000 : 500
+    }}>
+      {/* Traffic Light */}
+      <div style={{
+        width: `${lightSize}px`,
+        height: `${lightSize}px`,
+        borderRadius: '50%',
+        background: color === 'green' ? '#10b981' :
+                   color === 'yellow' ? '#f59e0b' : '#ef4444',
+        boxShadow: `0 0 ${glowIntensity}px ${color === 'green' ? '#10b981' :
+                   color === 'yellow' ? '#f59e0b' : '#ef4444'}`,
+        border: '2px solid rgba(255,255,255,0.9)',
+        transition: 'all 0.2s ease'
+      }} />
+      
+      {/* Junction Label - Only show for main junction */}
+      {name && (
+        <div style={{
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '6px 10px',
+          borderRadius: '16px',
+          fontSize: '11px',
+          fontWeight: '600',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          backdropFilter: 'blur(4px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '2px'
+        }}>
+          <div>{name}</div>
+          <div style={{
+            fontSize: '9px',
+            color: '#d1d5db',
+            fontWeight: '500'
+          }}>
+            {count} vehicles
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default class LiveTraffic extends Component {
   static defaultProps = {
@@ -31,7 +93,11 @@ export default class LiveTraffic extends Component {
       predictionLoaded: false,
       lastUpdateTime: new Date(),
       showCars: true,
-      carPositions: [], // Store all car positions
+      carPositions: [],
+      selectedJunction: null,
+      animationSpeed: 'normal',
+      autoRefresh: true,
+      mapStyle: 'default',
       junctions: [
         { 
           name: 'Silk Board', 
@@ -39,6 +105,7 @@ export default class LiveTraffic extends Component {
           lat: 12.9176, 
           lng: 77.6227,
           description: 'Hosur Road & Outer Ring Road',
+          icon: '🛣️',
           trafficLights: [
             { lat: 12.9176, lng: 77.6227 },
             { lat: 12.9185, lng: 77.6235 },
@@ -52,6 +119,7 @@ export default class LiveTraffic extends Component {
           lat: 12.9591, 
           lng: 77.6974,
           description: 'IT Corridor Hub',
+          icon: '💼',
           trafficLights: [
             { lat: 12.9591, lng: 77.6974 },
             { lat: 12.9600, lng: 77.6980 },
@@ -65,6 +133,7 @@ export default class LiveTraffic extends Component {
           lat: 12.9352, 
           lng: 77.6245,
           description: '80 Feet Road Junction',
+          icon: '🏙️',
           trafficLights: [
             { lat: 12.9352, lng: 77.6245 },
             { lat: 12.9360, lng: 77.6255 },
@@ -77,6 +146,7 @@ export default class LiveTraffic extends Component {
           lat: 12.9716, 
           lng: 77.5946,
           description: 'City Center',
+          icon: '🏛️',
           trafficLights: [
             { lat: 12.9716, lng: 77.5946 },
             { lat: 12.9720, lng: 77.5950 },
@@ -89,6 +159,7 @@ export default class LiveTraffic extends Component {
           lat: 12.9698, 
           lng: 77.7499,
           description: 'ITPL Main Road',
+          icon: '🏢',
           trafficLights: [
             { lat: 12.9698, lng: 77.7499 },
             { lat: 12.9705, lng: 77.7505 },
@@ -101,6 +172,7 @@ export default class LiveTraffic extends Component {
           lat: 12.8456, 
           lng: 77.6603,
           description: 'Hosur Road IT Hub',
+          icon: '⚡',
           trafficLights: [
             { lat: 12.8456, lng: 77.6603 },
             { lat: 12.8465, lng: 77.6610 },
@@ -112,23 +184,21 @@ export default class LiveTraffic extends Component {
   }
 
   generateCarPositions() {
-    const { junctions } = this.state;
+    const { junctions, animationSpeed } = this.state;
     const allCars = [];
     
     junctions.forEach((junction, jIdx) => {
       const trafficCount = this.state[`c${jIdx + 1}`];
       const lightColor = this.state[`l${jIdx + 1}`];
       
-      // Show 1 car marker per 5 vehicles, max 30 cars per junction
-      const numCars = Math.min(Math.floor(trafficCount / 5), 30);
-      const spread = 0.006; // Spread radius around junction
+      // Reduced number of cars for better performance
+      const numCars = Math.min(Math.floor(trafficCount / 8), 25);
+      const spread = 0.008;
       
-      // Get color based on traffic light
       const carColor = lightColor === 'green' ? '#10b981' : 
                        lightColor === 'yellow' ? '#f59e0b' : '#ef4444';
       
       for (let i = 0; i < numCars; i++) {
-        // Generate random positions around the junction
         const angle = (Math.PI * 2 * i) / numCars + Math.random() * 0.5;
         const distance = Math.random() * spread;
         
@@ -139,7 +209,8 @@ export default class LiveTraffic extends Component {
           id: `car-${jIdx}-${i}`,
           lat,
           lng,
-          color: carColor
+          color: carColor,
+          speed: lightColor === 'green' ? 'fast' : lightColor === 'yellow' ? 'normal' : 'slow'
         });
       }
     });
@@ -158,8 +229,6 @@ export default class LiveTraffic extends Component {
       });
       
       this.initializeTrafficFromML(predictions);
-      
-      console.log('✅ ML Predictions loaded successfully');
       
       return predictions;
       
@@ -258,7 +327,6 @@ export default class LiveTraffic extends Component {
     const predictions = await this.loadMLPredictions();
     this.startTrafficSimulation();
     
-    // Update car positions every 3 seconds
     this.carUpdateInterval = setInterval(() => {
       if (this.state.showCars) {
         const newPositions = this.generateCarPositions();
@@ -267,17 +335,20 @@ export default class LiveTraffic extends Component {
     }, 3000);
     
     this.mlUpdateInterval = setInterval(() => {
-      this.loadMLPredictions();
+      if (this.state.autoRefresh) {
+        this.loadMLPredictions();
+      }
     }, 300000);
+
+    this.clockInterval = setInterval(() => {
+      this.setState({ lastUpdateTime: new Date() });
+    }, 10000); // Update every 10 seconds instead of 1 second
   }
 
   componentWillUnmount() {
-    if (this.mlUpdateInterval) {
-      clearInterval(this.mlUpdateInterval);
-    }
-    if (this.carUpdateInterval) {
-      clearInterval(this.carUpdateInterval);
-    }
+    if (this.mlUpdateInterval) clearInterval(this.mlUpdateInterval);
+    if (this.carUpdateInterval) clearInterval(this.carUpdateInterval);
+    if (this.clockInterval) clearInterval(this.clockInterval);
   }
 
   async startTrafficSimulation() {
@@ -329,9 +400,6 @@ export default class LiveTraffic extends Component {
       const totalTraffic = trafficCounts.reduce((sum, val) => sum + val, 0);
       const greenTime = this.calculateGreenTime(trafficCounts[laneIndex], totalTraffic);
       
-      console.log(`🟢 Lane ${laneIndex + 1} (${this.state.junctions[laneIndex].name}) - ` +
-                  `Traffic: ${trafficCounts[laneIndex]}, Green Time: ${greenTime}s`);
-      
       this.setState({ [`l${laneIndex + 1}`]: 'green' });
       
       const cycles = Math.floor(greenTime / 3);
@@ -343,11 +411,9 @@ export default class LiveTraffic extends Component {
         }
       }
       
-      console.log(`🟡 Lane ${laneIndex + 1} - YELLOW`);
       this.setState({ [`l${laneIndex + 1}`]: 'yellow' });
       await this.sleep(3000);
       
-      console.log(`🔴 Lane ${laneIndex + 1} - RED`);
       this.setState({ [`l${laneIndex + 1}`]: 'red' });
       
       laneIndex = (laneIndex + 1) % 6;
@@ -357,14 +423,38 @@ export default class LiveTraffic extends Component {
   }
   
   render() {
-    const { junctions, mlPredictions, lastUpdateTime, showCars, carPositions } = this.state;
+    const { junctions, mlPredictions, lastUpdateTime, showCars, carPositions, 
+            selectedJunction, mapStyle, autoRefresh } = this.state;
+    
+    const totalVehicles = mlPredictions ? 
+      Object.values(mlPredictions).reduce((sum, p) => sum + p.current_traffic, 0) : 0;
+    
+    const avgTraffic = mlPredictions ? 
+      Math.floor(Object.values(mlPredictions).reduce((sum, p) => sum + p.avg_traffic_24h, 0) / 6) : 0;
     
     return (
       <div style={styles.container}>
         <style>{`
-          @keyframes carBlink {
-            0%, 100% { opacity: 0.8; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.2); }
+          @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          .junction-item {
+            transition: all 0.15s ease;
+          }
+          .junction-item:hover {
+            transform: translateX(-2px);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+          }
+          .control-btn {
+            transition: all 0.15s ease;
+          }
+          .control-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          }
+          .control-btn:active {
+            transform: translateY(0);
           }
         `}</style>
         
@@ -372,13 +462,17 @@ export default class LiveTraffic extends Component {
           defaultCenter={this.props.center}
           defaultZoom={this.props.zoom}
           layerTypes={['TrafficLayer']}
-          options={{ styles: mapStyle }}
+          options={{ 
+            styles: mapStyle === 'dark' ? darkMapStyle : defaultMapStyle,
+            fullscreenControl: true,
+            zoomControl: true,
+            streetViewControl: false
+          }}
           bootstrapURLKeys={{
             key: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyC33R5XOIc8basuTtd74eFquIIAnuhWJGg',
             libraries: ['places', 'geometry']
           }}
         >
-          {/* Render traffic lights */}
           {junctions.map((junction, jIdx) => (
             <div key={jIdx}>
               {junction.trafficLights.map((light, lIdx) => (
@@ -390,38 +484,48 @@ export default class LiveTraffic extends Component {
                   lat={light.lat}
                   lng={light.lng}
                   name={lIdx === 0 ? junction.name : undefined}
+                  congestionLevel={
+                    this.state[`c${jIdx + 1}`] > 300 ? 'High' :
+                    this.state[`c${jIdx + 1}`] > 200 ? 'Moderate' : 'Low'
+                  }
                 />
               ))}
             </div>
           ))}
 
-          {/* Render car markers */}
           {showCars && carPositions.map(car => (
             <CarMarker
               key={car.id}
               lat={car.lat}
               lng={car.lng}
               color={car.color}
+              speed={car.speed}
             />
           ))}
         </GoogleMapReact>
         
-        {/* Info Panel */}
+        {/* Enhanced Info Panel */}
         <div style={styles.infoPanel}>
+          {/* Header */}
           <div style={styles.panelHeader}>
             <div>
               <h3 style={styles.panelTitle}>
                 🚦 Bangalore Live Traffic
               </h3>
-              <p style={styles.subtitle}>ML-Powered Predictions</p>
+              <p style={styles.subtitle}>Real-time ML-Powered System</p>
             </div>
-            <div style={styles.mlBadge}>
-              <span>🤖</span> ML Active
+            <div style={styles.badges}>
+              <div style={styles.mlBadge}>
+                <span style={{ fontSize: '14px' }}>🤖</span>
+                <span>ML Active</span>
+              </div>
             </div>
           </div>
           
-          <div style={styles.controls}>
+          {/* Control Panel */}
+          <div style={styles.controlPanel}>
             <button
+              className="control-btn"
               onClick={() => {
                 const newShowCars = !showCars;
                 this.setState({ showCars: newShowCars });
@@ -431,83 +535,160 @@ export default class LiveTraffic extends Component {
               }}
               style={{
                 ...styles.controlButton,
-                background: showCars ? '#10b981' : '#6b7280'
+                background: showCars ? 
+                  'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                  'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
               }}
             >
-              {showCars ? '🚗 Cars ON' : '🚗 Cars OFF'}
+              <span style={{ fontSize: '16px' }}>{showCars ? '🚗' : '🚫'}</span>
+              <span>{showCars ? 'Cars ON' : 'Cars OFF'}</span>
             </button>
             
-            <div style={styles.carCount}>
-              {carPositions.length} cars visible
-            </div>
+            <button
+              className="control-btn"
+              onClick={() => this.setState({ autoRefresh: !autoRefresh })}
+              style={{
+                ...styles.controlButton,
+                background: autoRefresh ? 
+                  'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 
+                  'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>🔄</span>
+              <span>{autoRefresh ? 'Auto' : 'Manual'}</span>
+            </button>
+
+            <button
+              className="control-btn"
+              onClick={() => this.loadMLPredictions()}
+              style={{
+                ...styles.controlButton,
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>⚡</span>
+              <span>Refresh</span>
+            </button>
           </div>
           
-          <div style={styles.timestamp}>
-            Last Update: {lastUpdateTime.toLocaleTimeString('en-IN')}
-          </div>
-          
-          {mlPredictions && (
-            <div style={styles.stats}>
-              <div style={styles.statItem}>
+          {/* Live Stats */}
+          <div style={styles.statsGrid}>
+            <div style={styles.statCard}>
+              <div style={styles.statIcon}>🚗</div>
+              <div style={styles.statContent}>
                 <div style={styles.statLabel}>Total Vehicles</div>
-                <div style={styles.statValue}>
-                  {Object.values(mlPredictions).reduce((sum, p) => 
-                    sum + p.current_traffic, 0).toLocaleString()}
-                </div>
+                <div style={styles.statValue}>{totalVehicles.toLocaleString()}</div>
               </div>
-              <div style={styles.statItem}>
-                <div style={styles.statLabel}>Avg 24h</div>
-                <div style={styles.statValue}>
-                  {Math.floor(Object.values(mlPredictions).reduce((sum, p) => 
-                    sum + p.avg_traffic_24h, 0) / 6).toLocaleString()}
+            </div>
+            
+            <div style={styles.statCard}>
+              <div style={styles.statIcon}>📊</div>
+              <div style={styles.statContent}>
+                <div style={styles.statLabel}>24h Average</div>
+                <div style={styles.statValue}>{avgTraffic.toLocaleString()}</div>
+              </div>
+            </div>
+            
+            <div style={styles.statCard}>
+              <div style={styles.statIcon}>👁️</div>
+              <div style={styles.statContent}>
+                <div style={styles.statLabel}>Cars Visible</div>
+                <div style={styles.statValue}>{carPositions.length}</div>
+              </div>
+            </div>
+            
+            <div style={styles.statCard}>
+              <div style={styles.statIcon}>⏰</div>
+              <div style={styles.statContent}>
+                <div style={styles.statLabel}>Last Update</div>
+                <div style={{...styles.statValue, fontSize: '13px'}}>
+                  {lastUpdateTime.toLocaleTimeString('en-IN')}
                 </div>
               </div>
             </div>
-          )}
+          </div>
           
-          <div style={styles.junctionList}>
-            <div style={styles.sectionTitle}>Major Junctions</div>
-            {junctions.map((junction, idx) => {
-              const lightColor = this.state[`l${idx + 1}`];
-              const traffic = this.state[`c${idx + 1}`];
-              const congestion = traffic > 300 ? 'High' : traffic > 200 ? 'Moderate' : 'Low';
-              
-              return (
-                <div key={idx} style={styles.junctionItem}>
-                  <div style={{
-                    ...styles.lightIndicator,
-                    background: lightColor === 'green' ? '#10b981' :
-                               lightColor === 'yellow' ? '#f59e0b' : '#ef4444',
-                    boxShadow: lightColor === 'green' ? '0 0 15px #10b981' :
-                              lightColor === 'yellow' ? '0 0 15px #f59e0b' : '0 0 15px #ef4444'
-                  }}/>
-                  <div style={{flex: 1}}>
-                    <div style={styles.junctionName}>{junction.name}</div>
-                    <div style={styles.junctionDesc}>{junction.description}</div>
-                    <div style={styles.trafficInfo}>
-                      <span style={styles.trafficCount}>🚗 {traffic} vehicles</span>
-                      <span style={{
-                        ...styles.congestionBadge,
-                        background: congestion === 'High' ? '#fee2e2' :
-                                  congestion === 'Moderate' ? '#fef3c7' : '#dcfce7',
-                        color: congestion === 'High' ? '#991b1b' :
-                              congestion === 'Moderate' ? '#854d0e' : '#166534'
-                      }}>
-                        {congestion}
-                      </span>
+          {/* Junction List */}
+          <div style={styles.junctionSection}>
+            <div style={styles.sectionHeader}>
+              <span style={styles.sectionTitle}>Major Junctions</span>
+              <span style={styles.sectionBadge}>Live</span>
+            </div>
+            
+            <div style={styles.junctionList}>
+              {junctions.map((junction, idx) => {
+                const lightColor = this.state[`l${idx + 1}`];
+                const traffic = this.state[`c${idx + 1}`];
+                const congestion = traffic > 300 ? 'High' : traffic > 200 ? 'Moderate' : 'Low';
+                const isSelected = selectedJunction === idx;
+                
+                return (
+                  <div 
+                    key={idx} 
+                    className="junction-item"
+                    onClick={() => this.setState({ 
+                      selectedJunction: isSelected ? null : idx 
+                    })}
+                    style={{
+                      ...styles.junctionItem,
+                      background: isSelected ? '#f3f4f6' : '#ffffff',
+                      border: isSelected ? '2px solid #3b82f6' : '1px solid #e5e7eb'
+                    }}
+                  >
+                    <div style={styles.junctionIcon}>{junction.icon}</div>
+                    
+                    <div style={{flex: 1}}>
+                      <div style={styles.junctionHeader}>
+                        <span style={styles.junctionName}>{junction.name}</span>
+                        <div style={{
+                          ...styles.lightIndicator,
+                          background: lightColor === 'green' ? '#10b981' :
+                                     lightColor === 'yellow' ? '#f59e0b' : '#ef4444',
+                          boxShadow: `0 0 12px ${lightColor === 'green' ? '#10b981' :
+                                     lightColor === 'yellow' ? '#f59e0b' : '#ef4444'}`
+                        }}/>
+                      </div>
+                      
+                      <div style={styles.junctionDesc}>{junction.description}</div>
+                      
+                      <div style={styles.junctionMetrics}>
+                        <div style={styles.metricItem}>
+                          <span style={styles.metricIcon}>🚗</span>
+                          <span style={styles.metricValue}>{traffic}</span>
+                        </div>
+                        
+                        <div style={{
+                          ...styles.congestionBadge,
+                          background: congestion === 'High' ? '#fef2f2' :
+                                    congestion === 'Moderate' ? '#fef9c3' : '#f0fdf4',
+                          color: congestion === 'High' ? '#dc2626' :
+                                congestion === 'Moderate' ? '#ca8a04' : '#16a34a',
+                          border: `1px solid ${congestion === 'High' ? '#fecaca' :
+                                congestion === 'Moderate' ? '#fde047' : '#bbf7d0'}`
+                        }}>
+                          {congestion}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
           
+          {/* Footer */}
           <div style={styles.footer}>
-            <div style={styles.footerText}>
-              Powered by Bangalore Pulse Dataset
+            <div style={styles.footerBrand}>
+              <span style={styles.footerIcon}>⚡</span>
+              <span style={styles.footerTitle}>FlowGuard AI</span>
             </div>
-            <div style={styles.footerText}>
-              ML Model: Multiple Linear Regression
+            <div style={styles.footerInfo}>
+              <div style={styles.footerText}>Bangalore Pulse Dataset</div>
+              <div style={styles.footerText}>Multi-Linear Regression ML</div>
+            </div>
+            <div style={styles.systemStatus}>
+              <span style={styles.statusDot}></span>
+              <span style={styles.statusText}>System Online</span>
             </div>
           </div>
         </div>
@@ -520,199 +701,380 @@ const styles = {
   container: {
     position: 'relative',
     width: '100%',
-    height: '100%'
+    height: '100vh'
   },
   infoPanel: {
     position: 'absolute',
     top: 20,
     right: 20,
-    background: 'rgba(255, 255, 255, 0.98)',
+    background: 'rgba(255, 255, 255, 0.95)',
     padding: '20px',
     borderRadius: '16px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-    minWidth: '320px',
-    maxWidth: '400px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+    minWidth: '340px',
+    maxWidth: '380px',
     maxHeight: '90vh',
     overflowY: 'auto',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255,255,255,0.3)'
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(255,255,255,0.6)',
+    animation: 'slideIn 0.3s ease-out'
   },
   panelHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '15px'
+    marginBottom: '16px',
+    paddingBottom: '12px',
+    borderBottom: '1px solid #e5e7eb'
   },
   panelTitle: {
     margin: 0,
     fontSize: '20px',
-    color: '#1f2937',
-    fontWeight: '700'
+    color: '#111827',
+    fontWeight: '700',
+    letterSpacing: '-0.3px'
   },
   subtitle: {
     margin: '4px 0 0 0',
-    fontSize: '13px',
-    color: '#6b7280'
+    fontSize: '12px',
+    color: '#6b7280',
+    fontWeight: '500'
+  },
+  badges: {
+    display: 'flex',
+    gap: '8px',
+    marginTop: '10px'
   },
   mlBadge: {
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     color: 'white',
     padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: 'bold',
+    borderRadius: '10px',
+    fontSize: '11px',
+    fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '5px'
+    gap: '5px',
+    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
   },
-  controls: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '15px',
-    alignItems: 'center'
+  controlPanel: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '8px',
+    marginBottom: '16px'
   },
   controlButton: {
-    padding: '8px 16px',
+    padding: '10px 6px',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
     color: 'white',
     fontWeight: '600',
-    fontSize: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s'
-  },
-  carCount: {
-    flex: 1,
     fontSize: '11px',
-    color: '#6b7280',
-    textAlign: 'right',
-    fontWeight: '600'
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
   },
-  timestamp: {
-    fontSize: '12px',
-    color: '#6b7280',
-    marginBottom: '15px',
-    padding: '8px 12px',
-    background: '#f9fafb',
-    borderRadius: '8px',
-    fontFamily: 'monospace'
-  },
-  stats: {
+  statsGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '10px',
-    marginBottom: '15px'
+    marginBottom: '16px'
   },
-  statItem: {
+  statCard: {
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
     padding: '12px',
-    background: 'linear-gradient(135deg, #667eea15, #764ba215)',
-    borderRadius: '10px',
-    textAlign: 'center'
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+  },
+  statIcon: {
+    fontSize: '24px',
+    lineHeight: 1
+  },
+  statContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px'
   },
   statLabel: {
-    fontSize: '11px',
-    color: '#6b7280',
-    marginBottom: '4px',
-    textTransform: 'uppercase',
+    fontSize: '9px',
+    color: '#9ca3af',
     fontWeight: '600',
+    textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
   statValue: {
-    fontSize: '20px',
-    color: '#1f2937',
-    fontWeight: '700'
+    fontSize: '18px',
+    color: '#111827',
+    fontWeight: '700',
+    lineHeight: 1.2
+  },
+  junctionSection: {
+    marginBottom: '16px'
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px'
   },
   sectionTitle: {
-    fontSize: '14px',
+    fontSize: '12px',
     color: '#6b7280',
-    marginBottom: '10px',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
+  },
+  sectionBadge: {
+    background: '#dc2626',
+    color: 'white',
+    padding: '3px 8px',
+    borderRadius: '8px',
+    fontSize: '9px',
+    fontWeight: '600'
   },
   junctionList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px'
+    gap: '8px'
   },
   junctionItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     padding: '12px',
-    background: '#f9fafb',
-    borderRadius: '10px',
-    transition: 'all 0.3s',
-    cursor: 'pointer'
+    borderRadius: '12px',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
   },
-  lightIndicator: {
-    width: '14px',
-    height: '14px',
-    borderRadius: '50%',
-    flexShrink: 0,
-    transition: 'all 0.3s'
+  junctionIcon: {
+    fontSize: '28px',
+    lineHeight: 1,
+    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))'
+  },
+  junctionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '3px'
   },
   junctionName: {
     fontSize: '15px',
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: '2px'
+    color: '#111827',
+    letterSpacing: '-0.2px'
+  },
+  lightIndicator: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    transition: 'all 0.2s ease'
   },
   junctionDesc: {
     fontSize: '11px',
     color: '#9ca3af',
-    marginBottom: '6px'
+    marginBottom: '6px',
+    fontWeight: '500'
   },
-  trafficInfo: {
+  junctionMetrics: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px'
   },
-  trafficCount: {
+  metricItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px'
+  },
+  metricIcon: {
+    fontSize: '13px'
+  },
+  metricValue: {
     fontSize: '13px',
-    color: '#4b5563',
-    fontWeight: '500'
+    fontWeight: '600',
+    color: '#374151'
   },
   congestionBadge: {
-    fontSize: '10px',
+    fontSize: '9px',
     padding: '3px 8px',
-    borderRadius: '12px',
+    borderRadius: '8px',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: '0.3px'
   },
   footer: {
-    marginTop: '15px',
-    paddingTop: '15px',
+    marginTop: '16px',
+    paddingTop: '16px',
     borderTop: '1px solid #e5e7eb',
-    textAlign: 'center'
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  footerBrand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    justifyContent: 'center'
+  },
+  footerIcon: {
+    fontSize: '18px'
+  },
+  footerTitle: {
+    fontSize: '15px',
+    fontWeight: '700',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text'
+  },
+  footerInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '3px',
+    alignItems: 'center'
   },
   footerText: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: '#9ca3af',
-    margin: '4px 0'
+    fontWeight: '500'
+  },
+  systemStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    justifyContent: 'center',
+    padding: '6px 12px',
+    background: '#f0fdf4',
+    borderRadius: '8px',
+    border: '1px solid #bbf7d0'
+  },
+  statusDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    background: '#16a34a',
+    boxShadow: '0 0 8px #16a34a'
+  },
+  statusText: {
+    fontSize: '10px',
+    color: '#16a34a',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px'
   }
 };
 
-const mapStyle = [
+const defaultMapStyle = [
   {
     featureType: 'all',
     elementType: 'labels.text.fill',
     stylers: [{ color: '#7c93a3' }, { lightness: '-10' }]
   },
   {
+    featureType: 'administrative.locality',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#374151' }]
+  },
+  {
     featureType: 'landscape',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#dde3e3' }]
+    stylers: [{ color: '#e5e7eb' }]
+  },
+  {
+    featureType: 'poi',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#d1d5db' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#ffffff' }]
   },
   {
     featureType: 'road.highway',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#bbcacf' }]
+    stylers: [{ color: '#c7d2fe' }]
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#a5b4fc' }]
+  },
+  {
+    featureType: 'road.arterial',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#f3f4f6' }]
   },
   {
     featureType: 'water',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#a3c7df' }]
+    stylers: [{ color: '#bfdbfe' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#e0e7ff' }]
+  }
+];
+
+const darkMapStyle = [
+  {
+    elementType: 'geometry',
+    stylers: [{ color: '#212121' }]
+  },
+  {
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#757575' }]
+  },
+  {
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#212121' }]
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'geometry',
+    stylers: [{ color: '#757575' }]
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#757575' }]
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ color: '#181818' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#2c2c2c' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#8a8a8a' }]
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#3c3c3c' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#2f3948' }]
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#000000' }]
   }
 ];

@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: flowguard-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/mlruns
+      - MONGODB_URL=mongodb://mongo:27017
+    depends_on:
+      - mongo
+    networks:
+      - flowguard-network
+
+  mongo:
+    image: mongo:latest
+    container_name: flowguard-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - flowguard-network
+
+  frontend:
+    image: node:18-alpine
+    container_name: flowguard-frontend
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - backend
+    networks:
+      - flowguard-network
+
+networks:
+  flowguard-network:
+    driver: bridge
+
+volumes:
+  mongo_data:

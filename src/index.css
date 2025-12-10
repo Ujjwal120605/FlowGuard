@@ -1,9 +1,52 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('./images/hero-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    color: white;
+}
+
+/* Glassmorphism Utilities */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 15px !important;
+    color: white;
+}
+
+.glass-header {
+    background: rgba(23, 23, 47, 0.8) !important;
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Override Ant Design & Semantic UI for Dark Mode */
+.ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content {
+    background: transparent !important;
+}
+
 .fine {
     width: 50%;
-    border-right: 1px solid #eee;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 .fine input {
     margin: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px;
+    border-radius: 5px;
 }
 
 .rc-info {
@@ -16,11 +59,14 @@
 .car-placeholder {
     width: 180px !important;
     height: 150px !important;
-    opacity: .2;
+    opacity: .8;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
 }
 .rc-info img{
     width: 300px;
     height: 150px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
 .challan {
@@ -34,9 +80,16 @@
     border-collapse: collapse;
     width: 92%;
     margin: 40px;
+    color: white;
 }
 
 .table-bordered, td {
-    border: 1px solid #ddd;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     text-align: center;
+    padding: 10px;
+}
+
+th {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px;
 }

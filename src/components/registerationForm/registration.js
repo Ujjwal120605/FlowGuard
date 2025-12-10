@@ -26,9 +26,16 @@ export default class RegistrationForm extends Component {
     this.updateStats();
   }
 
-  updateStats = () => {
-    const existingData = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
-    this.setState({ totalRegistered: existingData.length });
+  updateStats = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/vehicles");
+      if (response.ok) {
+        const vehicles = await response.json();
+        this.setState({ totalRegistered: vehicles.length });
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    }
   }
 
   validateForm = () => {
@@ -59,7 +66,7 @@ export default class RegistrationForm extends Component {
     return newErrors;
   };
 
-  handleRegister = (event) => {
+  handleRegister = async (event) => {
     event.preventDefault();
 
     const validationErrors = this.validateForm();
@@ -83,23 +90,8 @@ export default class RegistrationForm extends Component {
       registrationDate
     } = this.state;
 
-    // Get existing data from localStorage
-    const existingData = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
-
-    // Check if vehicle number already exists
-    const vehicleExists = existingData.some(
-      (item) => item.vehicleNumber === vehicleNumber
-    );
-    if (vehicleExists) {
-      this.setState({
-        errors: { vehicleNumber: "This vehicle number is already registered!" }
-      });
-      return;
-    }
-
     // Create new vehicle record
     const newVehicle = {
-      id: Date.now(),
       vehicleNumber,
       name,
       phone,
@@ -112,36 +104,55 @@ export default class RegistrationForm extends Component {
       engineNumber,
       insuranceExpiry,
       registrationDate,
-      registeredOn: new Date().toISOString(),
-      fineHistory: [],
       status: isMissing === "Yes" ? "missing" : "active"
     };
 
-    const updatedData = [newVehicle, ...existingData];
-    localStorage.setItem("vehicle_registry", JSON.stringify(updatedData));
-
-    this.setState({ showSuccess: true });
-
-    // Clear form after 2 seconds
-    setTimeout(() => {
-      this.setState({
-        vehicleNumber: "",
-        name: "",
-        phone: "",
-        email: "",
-        address: "",
-        isMissing: "",
-        model: "",
-        color: "",
-        chassisNumber: "",
-        engineNumber: "",
-        insuranceExpiry: "",
-        registrationDate: "",
-        errors: {},
-        showSuccess: false
+    try {
+      const response = await fetch("http://localhost:8000/vehicles/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newVehicle),
       });
-      this.updateStats();
-    }, 2000);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        this.setState({
+          errors: { vehicleNumber: errorData.detail || "Registration failed" }
+        });
+        return;
+      }
+
+      this.setState({ showSuccess: true });
+
+      // Clear form after 2 seconds
+      setTimeout(() => {
+        this.setState({
+          vehicleNumber: "",
+          name: "",
+          phone: "",
+          email: "",
+          address: "",
+          isMissing: "",
+          model: "",
+          color: "",
+          chassisNumber: "",
+          engineNumber: "",
+          insuranceExpiry: "",
+          registrationDate: "",
+          errors: {},
+          showSuccess: false
+        });
+        this.updateStats();
+      }, 2000);
+
+    } catch (error) {
+      console.error("Registration error:", error);
+      this.setState({
+        errors: { vehicleNumber: "Network error. Please try again." }
+      });
+    }
   };
 
   handleChange = (field) => (e) => {

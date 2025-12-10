@@ -20,7 +20,7 @@ const Sidebar = () => {
   }, [location.pathname]);
 
   return (
-    <Layout.Sider 
+    <Layout.Sider
       style={styles.sider}
       width={280}
     >
@@ -70,9 +70,9 @@ const Sidebar = () => {
       </button>
 
       {/* Navigation Menu */}
-      <Menu 
-        style={styles.menu} 
-        mode="inline" 
+      <Menu
+        style={styles.menu}
+        mode="inline"
         selectedKeys={[selectedKey]}
         onClick={({ key }) => setSelectedKey(key)}
       >
@@ -94,9 +94,9 @@ const Sidebar = () => {
           <Link to="/routes" style={styles.menuLink}>
             <div style={styles.menuItemContent}>
               <div style={styles.iconWrapper}>
-                <img 
-                  src='https://image.flaticon.com/icons/svg/149/149058.svg' 
-                  style={styles.icon} 
+                <img
+                  src='https://image.flaticon.com/icons/svg/149/149058.svg'
+                  style={styles.icon}
                   alt="Route Optimizer"
                 />
               </div>
@@ -104,15 +104,15 @@ const Sidebar = () => {
                 <span style={styles.menuText}>Route Optimizer</span>
                 <span style={styles.menuDescription}>Navigation & alternate routes</span>
               </div>
-              <Badge 
-                count="NEW" 
-                style={{ 
-                  backgroundColor: '#ff4d4f', 
+              <Badge
+                count="NEW"
+                style={{
+                  backgroundColor: '#ff4d4f',
                   fontSize: '10px',
                   height: '18px',
                   lineHeight: '18px',
                   marginLeft: 'auto'
-                }} 
+                }}
               />
             </div>
           </Link>
@@ -122,9 +122,9 @@ const Sidebar = () => {
           <Link to="/stats" style={styles.menuLink}>
             <div style={styles.menuItemContent}>
               <div style={styles.iconWrapper}>
-                <img 
-                  src='https://image.flaticon.com/icons/svg/138/138351.svg' 
-                  style={styles.icon} 
+                <img
+                  src='https://image.flaticon.com/icons/svg/138/138351.svg'
+                  style={styles.icon}
                   alt="Statistics"
                 />
               </div>
@@ -132,15 +132,15 @@ const Sidebar = () => {
                 <span style={styles.menuText}>Analytics Dashboard</span>
                 <span style={styles.menuDescription}>Traffic insights & predictions</span>
               </div>
-              <Badge 
-                count="ML" 
-                style={{ 
-                  backgroundColor: '#52c41a', 
+              <Badge
+                count="ML"
+                style={{
+                  backgroundColor: '#52c41a',
                   fontSize: '10px',
                   height: '18px',
                   lineHeight: '18px',
                   marginLeft: 'auto'
-                }} 
+                }}
               />
             </div>
           </Link>
@@ -150,9 +150,9 @@ const Sidebar = () => {
           <Link to="/fine" style={styles.menuLink}>
             <div style={styles.menuItemContent}>
               <div style={styles.iconWrapper}>
-                <img 
-                  src='https://image.flaticon.com/icons/svg/584/584035.svg' 
-                  style={styles.icon} 
+                <img
+                  src='https://image.flaticon.com/icons/svg/584/584035.svg'
+                  style={styles.icon}
                   alt="Fine"
                 />
               </div>
@@ -168,8 +168,8 @@ const Sidebar = () => {
           <Link to="/vehicleRegisteration" style={styles.menuLink}>
             <div style={styles.menuItemContent}>
               <div style={styles.iconWrapper}>
-                <img  
-                  style={styles.icon} 
+                <img
+                  style={styles.icon}
                   src={require('./register.svg')}
                   alt="Registration"
                 />
@@ -200,10 +200,13 @@ const Sidebar = () => {
 const styles = {
   sider: {
     height: '100vh',
-    background: 'linear-gradient(180deg, #0a0a15 0%, #15152b 100%)',
+    background: 'rgba(10, 10, 21, 0.6)', // Semi-transparent dark background
+    backdropFilter: 'blur(15px)',        // Glassmorphism blur
+    WebkitBackdropFilter: 'blur(15px)',  // Safari support
     boxShadow: '4px 0 24px rgba(0, 0, 0, 0.4)',
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    borderRight: '1px solid rgba(255, 255, 255, 0.1)' // Subtle border
   },
   header: {
     padding: '24px 20px 16px 20px',

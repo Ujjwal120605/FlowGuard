@@ -10,7 +10,7 @@ export default class Fine extends React.Component {
       vehicleData: null,
       searchError: "",
       isVerified: false,
-      
+
       // Fine fields
       fineAmount: "",
       fineReason: "",
@@ -18,7 +18,7 @@ export default class Fine extends React.Component {
       emailSending: false,
       emailError: "",
       emailSuccess: false,
-      
+
       // UI state
       activeTab: "details",
       totalVehicles: 0,
@@ -32,16 +32,23 @@ export default class Fine extends React.Component {
     emailjs.init("k2dBL5Xibrgd0zTSF");
   }
 
-  updateStats = () => {
-    const registry = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
-    const missing = registry.filter(v => v.status === "missing").length;
-    this.setState({
-      totalVehicles: registry.length,
-      missingVehicles: missing
-    });
+  updateStats = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/vehicles");
+      if (response.ok) {
+        const vehicles = await response.json();
+        const missing = vehicles.filter(v => v.status === "missing").length;
+        this.setState({
+          totalVehicles: vehicles.length,
+          missingVehicles: missing
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    }
   };
 
-  showDetails = () => {
+  showDetails = async () => {
     const vehicleNumber = this.state.vehicleNumberInput.toUpperCase().trim();
 
     // Validate format (AA11AA1111)
@@ -56,43 +63,41 @@ export default class Fine extends React.Component {
       return;
     }
 
-    // Get data from localStorage
-    const registry = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
+    try {
+      const response = await fetch(`http://localhost:8000/vehicles/${vehicleNumber}`);
 
-    if (registry.length === 0) {
+      if (!response.ok) {
+        this.setState({
+          searchError: "Vehicle not found. Please check the number or register first.",
+          vehicleData: null,
+          isVerified: false
+        });
+        return;
+      }
+
+      const found = await response.json();
+
       this.setState({
-        searchError: "No vehicles registered in the database yet!",
+        vehicleData: found,
+        isVerified: true,
+        searchError: "",
+        fineSent: false,
+        emailError: "",
+        emailSuccess: false,
+        activeTab: "details"
+      });
+    } catch (error) {
+      this.setState({
+        searchError: "Network error. Please try again.",
         vehicleData: null,
         isVerified: false
       });
-      return;
     }
-
-    const found = registry.find(v => v.vehicleNumber === vehicleNumber);
-
-    if (!found) {
-      this.setState({
-        searchError: "Vehicle not found. Please check the number or register first.",
-        vehicleData: null,
-        isVerified: false
-      });
-      return;
-    }
-
-    this.setState({
-      vehicleData: found,
-      isVerified: true,
-      searchError: "",
-      fineSent: false,
-      emailError: "",
-      emailSuccess: false,
-      activeTab: "details"
-    });
   };
 
   sendEmailNotification = async (fineDetails) => {
     const { vehicleData } = this.state;
-    
+
     // Prepare template parameters matching your EmailJS template
     const templateParams = {
       owner_name: vehicleData.name,
@@ -102,32 +107,38 @@ export default class Fine extends React.Component {
       fine_amount: fineDetails.amount,
       fine_reason: fineDetails.reason,
       fine_date: new Date(fineDetails.date).toLocaleDateString("en-IN"),
-      email: vehicleData.email || "ujjwalbajpai.ec23@rvce.edu.in", // Fallback email
+      email: vehicleData.email || "ujjwalbajpai.ec23@rvce.edu.in", // Recipient email
+      to_email: vehicleData.email || "ujjwalbajpai.ec23@rvce.edu.in", // Explicit recipient for some templates
+      from_name: "FlowGuard Authority", // Sender name
+      from_email: "bajpaiujjwal3@gmail.com", // Sender email (if template supports it)
       name: vehicleData.name
     };
 
     try {
       this.setState({ emailSending: true, emailError: "", emailSuccess: false });
 
+      console.log("Sending email with params:", templateParams);
+
       const response = await emailjs.send(
         "service_jg2v1lf",           // Your Service ID
         "template_5kykldb",           // Your Template ID
-        templateParams
+        templateParams,
+        "k2dBL5Xibrgd0zTSF"          // Your Public Key
       );
 
       console.log("Email sent successfully!", response);
-      this.setState({ 
-        emailSuccess: true, 
+      this.setState({
+        emailSuccess: true,
         emailSending: false,
         emailError: ""
       });
-      
+
       return true;
     } catch (error) {
       console.error("Failed to send email:", error);
-      this.setState({ 
+      this.setState({
         emailSending: false,
-        emailError: "Failed to send email notification. Fine saved but notification failed.",
+        emailError: "Failed to send email notification. Fine saved but notification failed. Check console for details.",
         emailSuccess: false
       });
       return false;
@@ -156,73 +167,70 @@ export default class Fine extends React.Component {
       issuedBy: "Traffic Department"
     };
 
-    // Update vehicle with fine
-    const registry = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
-    const updatedRegistry = registry.map(v => {
-      if (v.vehicleNumber === vehicleData.vehicleNumber) {
-        return {
-          ...v,
-          fineHistory: [
-            ...(v.fineHistory || []),
-            newFine
-          ]
-        };
-      }
-      return v;
-    });
-
-    localStorage.setItem("vehicle_registry", JSON.stringify(updatedRegistry));
-
-    // Send email notification
-    await this.sendEmailNotification(newFine);
-
-    // Update local state
-    const updatedVehicle = updatedRegistry.find(
-      v => v.vehicleNumber === vehicleData.vehicleNumber
-    );
-
-    this.setState({
-      fineSent: true,
-      fineAmount: "",
-      fineReason: "",
-      vehicleData: updatedVehicle
-    });
-
-    setTimeout(() => {
-      this.setState({ 
-        fineSent: false,
-        emailSuccess: false,
-        emailError: ""
+    try {
+      const response = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}/fine`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newFine),
       });
-    }, 5000);
+
+      if (!response.ok) {
+        throw new Error("Failed to issue fine");
+      }
+
+      // Refresh vehicle data
+      const updatedResponse = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}`);
+      const updatedVehicle = await updatedResponse.json();
+
+      // Send email notification
+      await this.sendEmailNotification(newFine);
+
+      this.setState({
+        fineSent: true,
+        fineAmount: "",
+        fineReason: "",
+        vehicleData: updatedVehicle
+      });
+
+      setTimeout(() => {
+        this.setState({
+          fineSent: false,
+          emailSuccess: false,
+          emailError: ""
+        });
+      }, 5000);
+
+    } catch (error) {
+      alert("Failed to issue fine: " + error.message);
+    }
   };
 
-  reportFound = () => {
+  reportFound = async () => {
     const { vehicleData } = this.state;
     if (!vehicleData) return;
 
-    const registry = JSON.parse(localStorage.getItem("vehicle_registry")) || [];
-    const updatedRegistry = registry.map(v => {
-      if (v.vehicleNumber === vehicleData.vehicleNumber) {
-        return {
-          ...v,
-          status: "active",
-          isMissing: "No",
-          foundDate: new Date().toISOString()
-        };
+    try {
+      const response = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}/status?status=active&is_missing=No`, {
+        method: "PUT"
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update status");
       }
-      return v;
-    });
 
-    localStorage.setItem("vehicle_registry", JSON.stringify(updatedRegistry));
+      // Refresh vehicle data
+      const updatedResponse = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}`);
+      const updatedVehicle = await updatedResponse.json();
 
-    const updatedVehicle = updatedRegistry.find(
-      v => v.vehicleNumber === vehicleData.vehicleNumber
-    );
+      this.setState({ vehicleData: updatedVehicle });
+      this.updateStats();
+      alert("✅ Vehicle status updated to FOUND!");
 
-    this.setState({ vehicleData: updatedVehicle });
-    this.updateStats();
-    alert("✅ Vehicle status updated to FOUND!");
+    } catch (error) {
+      alert("Failed to update status: " + error.message);
+    }
   };
 
   calculateTotalFines = () => {
@@ -278,7 +286,7 @@ export default class Fine extends React.Component {
               <span style={styles.statLabel}>Total Vehicles</span>
             </div>
             <div style={styles.statItem}>
-              <span style={{...styles.statNumber, color: "#ef4444"}}>
+              <span style={{ ...styles.statNumber, color: "#ef4444" }}>
                 {missingVehicles}
               </span>
               <span style={styles.statLabel}>Missing Vehicles</span>
@@ -564,8 +572,8 @@ export default class Fine extends React.Component {
                       </div>
                     </div>
 
-                    <button 
-                      onClick={this.sendFine} 
+                    <button
+                      onClick={this.sendFine}
                       style={styles.submitButton}
                       disabled={emailSending}
                     >
@@ -689,7 +697,9 @@ const styles = {
     borderRadius: "10px",
     outline: "none",
     fontFamily: "inherit",
-    transition: "border-color 0.3s"
+    transition: "border-color 0.3s",
+    color: "#111827", // Ensure text is visible
+    backgroundColor: "#ffffff" // Ensure background is white
   },
   searchButton: {
     padding: "14px 32px",
@@ -1005,7 +1015,9 @@ const styles = {
     borderRadius: "8px",
     outline: "none",
     fontFamily: "inherit",
-    transition: "border-color 0.3s"
+    transition: "border-color 0.3s",
+    color: "#111827", // Ensure text is visible
+    backgroundColor: "#ffffff" // Ensure background is white
   },
   textarea: {
     padding: "12px 16px",
@@ -1015,7 +1027,9 @@ const styles = {
     outline: "none",
     fontFamily: "inherit",
     resize: "vertical",
-    transition: "border-color 0.3s"
+    transition: "border-color 0.3s",
+    color: "#111827", // Ensure text is visible
+    backgroundColor: "#ffffff" // Ensure background is white
   },
   quickReasons: {
     marginBottom: "20px"
