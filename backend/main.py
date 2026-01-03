@@ -30,11 +30,22 @@ app.add_middleware(
 
 # Initialize Services
 try:
-    traffic_predictor = EnhancedBangaloreTrafficPredictor(csv_path='trafficPrediction/cars.csv')
-    # Pre-train or load model if needed. For demo, we rely on the heuristic fallback in predict_next_24_hours
-    # traffic_predictor.train() 
+    # Initialize Traffic Predictor
+    # Note: csv_path relative to where main.py is run (usually codebase root)
+    traffic_predictor = EnhancedBangaloreTrafficPredictor(csv_path='trafficPrediction/cars.csv', model_dir='models')
+    
+    # Attempt to load models, if not found, train them
+    print("⏳ Initializing Traffic AI...")
+    if not traffic_predictor.load_saved_models():
+        print("⚠️ No trained models found. Starting initial training (this may take a minute)...")
+        traffic_predictor.train()
+    else:
+        print("✅ Traffic AI Models Loaded Successfully")
+        
 except Exception as e:
-    print(f"Warning: Traffic predictor initialization failed: {e}")
+    print(f"❌ Warning: Traffic predictor initialization failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 try:
     # Initialize with default model (will download if not present)

@@ -34,7 +34,7 @@ export default class Fine extends React.Component {
 
   updateStats = async () => {
     try {
-      const response = await fetch("http://localhost:8000/vehicles");
+      const response = await fetch("/api/vehicles");
       if (response.ok) {
         const vehicles = await response.json();
         const missing = vehicles.filter(v => v.status === "missing").length;
@@ -64,7 +64,7 @@ export default class Fine extends React.Component {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/vehicles/${vehicleNumber}`);
+      const response = await fetch(`/api/vehicles/${vehicleNumber}`);
 
       if (!response.ok) {
         this.setState({
@@ -168,7 +168,7 @@ export default class Fine extends React.Component {
     };
 
     try {
-      const response = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}/fine`, {
+      const response = await fetch(`/api/vehicles/${vehicleData.vehicleNumber}/fine`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,7 +181,7 @@ export default class Fine extends React.Component {
       }
 
       // Refresh vehicle data
-      const updatedResponse = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}`);
+      const updatedResponse = await fetch(`/api/vehicles/${vehicleData.vehicleNumber}`);
       const updatedVehicle = await updatedResponse.json();
 
       // Send email notification
@@ -212,7 +212,7 @@ export default class Fine extends React.Component {
     if (!vehicleData) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}/status?status=active&is_missing=No`, {
+      const response = await fetch(`/api/vehicles/${vehicleData.vehicleNumber}/status?status=active&is_missing=No`, {
         method: "PUT"
       });
 
@@ -221,7 +221,7 @@ export default class Fine extends React.Component {
       }
 
       // Refresh vehicle data
-      const updatedResponse = await fetch(`http://localhost:8000/vehicles/${vehicleData.vehicleNumber}`);
+      const updatedResponse = await fetch(`/api/vehicles/${vehicleData.vehicleNumber}`);
       const updatedVehicle = await updatedResponse.json();
 
       this.setState({ vehicleData: updatedVehicle });

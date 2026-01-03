@@ -19,10 +19,10 @@ const CarMarker = ({ color, speed = 'normal' }) => {
 const Trafficlight = ({ color, count, lat, lng, name, congestionLevel }) => {
   // Don't render Electronic City to reduce clutter
   if (name === 'Electronic City') return null;
-  
+
   const lightSize = name ? 20 : 14;
   const glowIntensity = 10;
-  
+
   return (
     <div style={{
       position: 'absolute',
@@ -39,13 +39,13 @@ const Trafficlight = ({ color, count, lat, lng, name, congestionLevel }) => {
         height: `${lightSize}px`,
         borderRadius: '50%',
         background: color === 'green' ? '#10b981' :
-                   color === 'yellow' ? '#f59e0b' : '#ef4444',
+          color === 'yellow' ? '#f59e0b' : '#ef4444',
         boxShadow: `0 0 ${glowIntensity}px ${color === 'green' ? '#10b981' :
-                   color === 'yellow' ? '#f59e0b' : '#ef4444'}`,
+          color === 'yellow' ? '#f59e0b' : '#ef4444'}`,
         border: '2px solid rgba(255,255,255,0.9)',
         transition: 'all 0.2s ease'
       }} />
-      
+
       {/* Junction Label - Only show for main junction */}
       {name && (
         <div style={{
@@ -83,12 +83,12 @@ export default class LiveTraffic extends Component {
     center: { lat: 12.9716, lng: 77.5946 },
     zoom: 12
   };
-  
-  constructor(){
+
+  constructor() {
     super();
     this.state = {
-      l1: 'red', l2: 'red', l3: 'red', l4: 'red', l5: 'red', l6: 'red',
-      c1: 0, c2: 0, c3: 0, c4: 0, c5: 0, c6: 0,
+      l1: 'red', l2: 'red', l3: 'red', l4: 'red', l5: 'red', l6: 'red', l7: 'red',
+      c1: 0, c2: 0, c3: 0, c4: 0, c5: 0, c6: 0, c7: 0,
       mlPredictions: null,
       predictionLoaded: false,
       lastUpdateTime: new Date(),
@@ -99,10 +99,10 @@ export default class LiveTraffic extends Component {
       autoRefresh: true,
       mapStyle: 'default',
       junctions: [
-        { 
-          name: 'Silk Board', 
+        {
+          name: 'Silk Board',
           key: 'Silk Board',
-          lat: 12.9176, 
+          lat: 12.9176,
           lng: 77.6227,
           description: 'Hosur Road & Outer Ring Road',
           icon: '🛣️',
@@ -113,10 +113,10 @@ export default class LiveTraffic extends Component {
             { lat: 12.9170, lng: 77.6220 }
           ]
         },
-        { 
-          name: 'Marathahalli', 
+        {
+          name: 'Marathahalli',
           key: 'Marathahalli',
-          lat: 12.9591, 
+          lat: 12.9591,
           lng: 77.6974,
           description: 'IT Corridor Hub',
           icon: '💼',
@@ -127,10 +127,10 @@ export default class LiveTraffic extends Component {
             { lat: 12.9595, lng: 77.6965 }
           ]
         },
-        { 
-          name: 'Koramangala', 
+        {
+          name: 'Koramangala',
           key: 'Koramangala',
-          lat: 12.9352, 
+          lat: 12.9352,
           lng: 77.6245,
           description: '80 Feet Road Junction',
           icon: '🏙️',
@@ -140,10 +140,10 @@ export default class LiveTraffic extends Component {
             { lat: 12.9345, lng: 77.6250 }
           ]
         },
-        { 
-          name: 'MG Road', 
+        {
+          name: 'MG Road',
           key: 'MG Road',
-          lat: 12.9716, 
+          lat: 12.9716,
           lng: 77.5946,
           description: 'City Center',
           icon: '🏛️',
@@ -153,10 +153,10 @@ export default class LiveTraffic extends Component {
             { lat: 12.9712, lng: 77.5942 }
           ]
         },
-        { 
-          name: 'Whitefield', 
+        {
+          name: 'Whitefield',
           key: 'Whitefield',
-          lat: 12.9698, 
+          lat: 12.9698,
           lng: 77.7499,
           description: 'ITPL Main Road',
           icon: '🏢',
@@ -166,10 +166,10 @@ export default class LiveTraffic extends Component {
             { lat: 12.9692, lng: 77.7493 }
           ]
         },
-        { 
-          name: 'Electronic City', 
+        {
+          name: 'Electronic City',
           key: 'Electronic City',
-          lat: 12.8456, 
+          lat: 12.8456,
           lng: 77.6603,
           description: 'Hosur Road IT Hub',
           icon: '⚡',
@@ -177,6 +177,19 @@ export default class LiveTraffic extends Component {
             { lat: 12.8456, lng: 77.6603 },
             { lat: 12.8465, lng: 77.6610 },
             { lat: 12.8450, lng: 77.6598 }
+          ]
+        },
+        {
+          name: 'Pattanegre',
+          key: 'Pattanegre',
+          lat: 12.9366,
+          lng: 77.5024,
+          description: 'Global Village Tech Park',
+          icon: '🏢',
+          trafficLights: [
+            { lat: 12.9366, lng: 77.5024 },
+            { lat: 12.9375, lng: 77.5030 },
+            { lat: 12.9355, lng: 77.5015 }
           ]
         }
       ]
@@ -186,25 +199,25 @@ export default class LiveTraffic extends Component {
   generateCarPositions() {
     const { junctions, animationSpeed } = this.state;
     const allCars = [];
-    
+
     junctions.forEach((junction, jIdx) => {
       const trafficCount = this.state[`c${jIdx + 1}`];
       const lightColor = this.state[`l${jIdx + 1}`];
-      
-      // Reduced number of cars for better performance
-      const numCars = Math.min(Math.floor(trafficCount / 8), 25);
+
+      // Reduced number of cars for better performance -> Increased for better visuals as requested
+      const numCars = Math.min(Math.floor(trafficCount / 3), 60);
       const spread = 0.008;
-      
-      const carColor = lightColor === 'green' ? '#10b981' : 
-                       lightColor === 'yellow' ? '#f59e0b' : '#ef4444';
-      
+
+      const carColor = lightColor === 'green' ? '#10b981' :
+        lightColor === 'yellow' ? '#f59e0b' : '#ef4444';
+
       for (let i = 0; i < numCars; i++) {
         const angle = (Math.PI * 2 * i) / numCars + Math.random() * 0.5;
         const distance = Math.random() * spread;
-        
+
         const lat = junction.lat + Math.cos(angle) * distance;
         const lng = junction.lng + Math.sin(angle) * distance;
-        
+
         allCars.push({
           id: `car-${jIdx}-${i}`,
           lat,
@@ -214,33 +227,100 @@ export default class LiveTraffic extends Component {
         });
       }
     });
-    
+
     return allCars;
   }
 
   async loadMLPredictions() {
     try {
-      const predictions = this.generateMLBasedPredictions();
-      
+      this.setState({ predictionLoaded: false });
+
+      const { junctions } = this.state;
+      const predictions = {};
+
+      // Fetch predictions for all junctions in parallel
+      const predictionPromises = junctions.map(async (junction) => {
+        try {
+          const response = await fetch('/api/predict/traffic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ junction_name: junction.key })
+          });
+
+          if (!response.ok) throw new Error('API Error');
+
+          const data = await response.json();
+          // Backend returns { junction: "...", predictions: [...] }
+          // We need to format it to match the component's expected structure
+
+          const hourlyData = data.predictions;
+          const currentTraffic = hourlyData[0]?.traffic_volume || 100;
+          const avgTraffic = Math.floor(hourlyData.reduce((sum, p) => sum + p.traffic_volume, 0) / 24);
+
+          return {
+            key: junction.key,
+            data: {
+              current_traffic: currentTraffic,
+              predictions: hourlyData,
+              avg_traffic_24h: avgTraffic,
+              trend: hourlyData[1].traffic_volume > currentTraffic ? 'increasing' : 'stable'
+            }
+          };
+        } catch (err) {
+          console.warn(`Failed to fetch for ${junction.key}:`, err);
+          return null;
+        }
+      });
+
+      const results = await Promise.all(predictionPromises);
+
+      results.forEach(res => {
+        if (res) predictions[res.key] = res.data;
+      });
+
+      // If API completely fails, fall back to heuristics (but mark as offline)
+      if (Object.keys(predictions).length === 0) {
+        console.warn('⚠️ Using fallback data due to API failure');
+        const fallback = this.generateFallbackData();
+        this.setState({
+          mlPredictions: fallback,
+          predictionLoaded: true,
+          lastUpdateTime: new Date()
+        });
+        this.initializeTrafficFromML(fallback);
+        return fallback;
+      }
+
       this.setState({
         mlPredictions: predictions,
         predictionLoaded: true,
         lastUpdateTime: new Date()
       });
-      
+
       this.initializeTrafficFromML(predictions);
-      
       return predictions;
-      
+
     } catch (error) {
       console.error('❌ Failed to load ML predictions:', error);
-      return this.generateMLBasedPredictions();
+      const fallback = this.generateFallbackData();
+      this.setState({
+        mlPredictions: fallback,
+        predictionLoaded: true,
+        lastUpdateTime: new Date()
+      });
+      this.initializeTrafficFromML(fallback);
+      return fallback;
     }
+  }
+
+  generateFallbackData() {
+    // Only used if backend is completely down
+    return this.generateMLBasedPredictions();
   }
 
   initializeTrafficFromML(predictions) {
     const { junctions } = this.state;
-    
+
     junctions.forEach((junction, idx) => {
       const predData = predictions[junction.key];
       if (predData) {
@@ -255,51 +335,66 @@ export default class LiveTraffic extends Component {
     const currentHour = new Date().getHours();
     const currentDay = new Date().getDay();
     const isWeekend = currentDay === 0 || currentDay === 6;
-    const isRushHour = (currentHour >= 8 && currentHour <= 10) || 
-                       (currentHour >= 17 && currentHour <= 20);
-    
+
+    // Adjusted logic: Morning (8-11), Afternoon (12-16), Evening (17-21)
+    const isMorningPeak = currentHour >= 8 && currentHour <= 11;
+    const isEveningPeak = currentHour >= 17 && currentHour <= 21;
+    const isAfternoon = currentHour >= 12 && currentHour <= 16;
+
+    const isRushHour = isMorningPeak || isEveningPeak;
+
+    // Increased base values and multipliers as per user request
     const baseTraffic = {
-      'Silk Board': { base: 180, rushMultiplier: 1.78, weekendMultiplier: 0.6 },
-      'Marathahalli': { base: 200, rushMultiplier: 1.75, weekendMultiplier: 0.62 },
-      'Koramangala': { base: 160, rushMultiplier: 1.75, weekendMultiplier: 0.65 },
-      'MG Road': { base: 170, rushMultiplier: 1.74, weekendMultiplier: 0.68 },
-      'Whitefield': { base: 185, rushMultiplier: 1.68, weekendMultiplier: 0.60 },
-      'Electronic City': { base: 175, rushMultiplier: 1.74, weekendMultiplier: 0.58 }
+      'Silk Board': { base: 250, rushMultiplier: 1.8, weekendMultiplier: 1.5, afternoonMultiplier: 1.4 },
+      'Marathahalli': { base: 280, rushMultiplier: 1.8, weekendMultiplier: 1.6, afternoonMultiplier: 1.45 },
+      'Koramangala': { base: 240, rushMultiplier: 1.75, weekendMultiplier: 1.65, afternoonMultiplier: 1.4 },
+      'MG Road': { base: 230, rushMultiplier: 1.7, weekendMultiplier: 1.7, afternoonMultiplier: 1.5 },
+      'Whitefield': { base: 260, rushMultiplier: 1.75, weekendMultiplier: 1.4, afternoonMultiplier: 1.35 },
+      'Electronic City': { base: 250, rushMultiplier: 1.8, weekendMultiplier: 1.3, afternoonMultiplier: 1.3 },
+      'Pattanegre': { base: 220, rushMultiplier: 1.6, weekendMultiplier: 1.2, afternoonMultiplier: 1.25 }
     };
 
     const predictions = {};
-    
+
     Object.keys(baseTraffic).forEach(area => {
       const config = baseTraffic[area];
       let traffic = config.base;
-      
+
       if (isRushHour) traffic *= config.rushMultiplier;
+      else if (isAfternoon) traffic *= config.afternoonMultiplier;
+
+      // User request: "on weekends more vehicles"
       if (isWeekend) traffic *= config.weekendMultiplier;
-      
+
       traffic += (Math.random() - 0.5) * traffic * 0.2;
-      
+
       const hourlyPredictions = [];
       for (let h = 0; h < 24; h++) {
         const futureHour = (currentHour + h) % 24;
-        const futureIsRush = (futureHour >= 8 && futureHour <= 10) || 
-                            (futureHour >= 17 && futureHour <= 20);
-        
+        const futureMorning = futureHour >= 8 && futureHour <= 11;
+        const futureEvening = futureHour >= 17 && futureHour <= 21;
+        const futureAfternoon = futureHour >= 12 && futureHour <= 16;
+
+        const futureIsRush = futureMorning || futureEvening;
+
         let hourTraffic = config.base;
         if (futureIsRush) hourTraffic *= config.rushMultiplier;
+        else if (futureAfternoon) hourTraffic *= config.afternoonMultiplier;
+
         if (isWeekend) hourTraffic *= config.weekendMultiplier;
-        
-        hourTraffic = Math.floor(hourTraffic + (Math.random() - 0.5) * 20);
-        
+
+        hourTraffic = Math.floor(hourTraffic + (Math.random() - 0.5) * 40);
+
         hourlyPredictions.push({
           hour: futureHour,
-          traffic_volume: Math.max(50, hourTraffic),
-          congestion_level: hourTraffic > 300 ? 'High' : 
-                          hourTraffic > 200 ? 'Moderate' : 'Low'
+          traffic_volume: Math.max(80, hourTraffic),
+          congestion_level: hourTraffic > 400 ? 'High' :
+            hourTraffic > 250 ? 'Moderate' : 'Low'
         });
       }
-      
+
       predictions[area] = {
-        current_traffic: Math.floor(Math.max(50, traffic)),
+        current_traffic: Math.floor(Math.max(80, traffic)),
         predictions: hourlyPredictions,
         avg_traffic_24h: Math.floor(
           hourlyPredictions.reduce((sum, p) => sum + p.traffic_volume, 0) / 24
@@ -323,17 +418,17 @@ export default class LiveTraffic extends Component {
     return Math.floor(greenTime);
   }
 
-  async componentDidMount(){
+  async componentDidMount() {
     const predictions = await this.loadMLPredictions();
     this.startTrafficSimulation();
-    
+
     this.carUpdateInterval = setInterval(() => {
       if (this.state.showCars) {
         const newPositions = this.generateCarPositions();
         this.setState({ carPositions: newPositions });
       }
     }, 3000);
-    
+
     this.mlUpdateInterval = setInterval(() => {
       if (this.state.autoRefresh) {
         this.loadMLPredictions();
@@ -353,12 +448,12 @@ export default class LiveTraffic extends Component {
 
   async startTrafficSimulation() {
     const rand = (num) => Math.floor(Math.random() * num) + 1;
-    
+
     const changeTraffic = (currentLane, trafficCounts) => {
       const updatedCounts = [...trafficCounts];
-      
-      for(let k = 0; k < 6; k++){
-        if(k === currentLane){
+
+      for (let k = 0; k < 7; k++) {
+        if (k === currentLane) {
           const decrease = Math.min(
             rand(Math.ceil(updatedCounts[k] / 3)),
             updatedCounts[k]
@@ -369,18 +464,18 @@ export default class LiveTraffic extends Component {
           updatedCounts[k] = Math.min(450, updatedCounts[k] + increase);
         }
       }
-      
+
       return updatedCounts;
     };
-    
+
     let laneIndex = 0;
-    
+
     while (true) {
       let trafficCounts = [
         this.state.c1, this.state.c2, this.state.c3,
-        this.state.c4, this.state.c5, this.state.c6
+        this.state.c4, this.state.c5, this.state.c6, this.state.c7
       ];
-      
+
       if (this.state.mlPredictions) {
         const { junctions } = this.state;
         junctions.forEach((junction, idx) => {
@@ -392,46 +487,46 @@ export default class LiveTraffic extends Component {
           }
         });
       }
-      
-      for(let k = 0; k < 6; k++){
-        this.setState({ [`c${k+1}`]: trafficCounts[k] });
+
+      for (let k = 0; k < 6; k++) {
+        this.setState({ [`c${k + 1}`]: trafficCounts[k] });
       }
-      
+
       const totalTraffic = trafficCounts.reduce((sum, val) => sum + val, 0);
       const greenTime = this.calculateGreenTime(trafficCounts[laneIndex], totalTraffic);
-      
+
       this.setState({ [`l${laneIndex + 1}`]: 'green' });
-      
+
       const cycles = Math.floor(greenTime / 3);
-      for(let i = 0; i < cycles && trafficCounts[laneIndex] > 5; i++){
+      for (let i = 0; i < cycles && trafficCounts[laneIndex] > 5; i++) {
         await this.sleep(3000);
         trafficCounts = changeTraffic(laneIndex, trafficCounts);
-        for(let k = 0; k < 6; k++){
-          this.setState({ [`c${k+1}`]: trafficCounts[k] });
+        for (let k = 0; k < 7; k++) {
+          this.setState({ [`c${k + 1}`]: trafficCounts[k] });
         }
       }
-      
+
       this.setState({ [`l${laneIndex + 1}`]: 'yellow' });
       await this.sleep(3000);
-      
+
       this.setState({ [`l${laneIndex + 1}`]: 'red' });
-      
-      laneIndex = (laneIndex + 1) % 6;
-      
+
+      laneIndex = (laneIndex + 1) % 7;
+
       await this.sleep(1000);
     }
   }
-  
+
   render() {
-    const { junctions, mlPredictions, lastUpdateTime, showCars, carPositions, 
-            selectedJunction, mapStyle, autoRefresh } = this.state;
-    
-    const totalVehicles = mlPredictions ? 
+    const { junctions, mlPredictions, lastUpdateTime, showCars, carPositions,
+      selectedJunction, mapStyle, autoRefresh } = this.state;
+
+    const totalVehicles = mlPredictions ?
       Object.values(mlPredictions).reduce((sum, p) => sum + p.current_traffic, 0) : 0;
-    
-    const avgTraffic = mlPredictions ? 
-      Math.floor(Object.values(mlPredictions).reduce((sum, p) => sum + p.avg_traffic_24h, 0) / 6) : 0;
-    
+
+    const avgTraffic = mlPredictions ?
+      Math.floor(Object.values(mlPredictions).reduce((sum, p) => sum + p.avg_traffic_24h, 0) / 7) : 0;
+
     return (
       <div style={styles.container}>
         <style>{`
@@ -457,12 +552,12 @@ export default class LiveTraffic extends Component {
             transform: translateY(0);
           }
         `}</style>
-        
+
         <GoogleMapReact
           defaultCenter={this.props.center}
           defaultZoom={this.props.zoom}
           layerTypes={['TrafficLayer']}
-          options={{ 
+          options={{
             styles: mapStyle === 'dark' ? darkMapStyle : defaultMapStyle,
             fullscreenControl: true,
             zoomControl: true,
@@ -480,13 +575,13 @@ export default class LiveTraffic extends Component {
                   key={`${jIdx}-${lIdx}`}
                   color={this.state[`l${jIdx + 1}`]}
                   count={lIdx === 0 ? this.state[`c${jIdx + 1}`] :
-                         Math.floor(this.state[`c${jIdx + 1}`] * (0.8 + Math.random() * 0.2))}
+                    Math.floor(this.state[`c${jIdx + 1}`] * (0.8 + Math.random() * 0.2))}
                   lat={light.lat}
                   lng={light.lng}
                   name={lIdx === 0 ? junction.name : undefined}
                   congestionLevel={
                     this.state[`c${jIdx + 1}`] > 300 ? 'High' :
-                    this.state[`c${jIdx + 1}`] > 200 ? 'Moderate' : 'Low'
+                      this.state[`c${jIdx + 1}`] > 200 ? 'Moderate' : 'Low'
                   }
                 />
               ))}
@@ -503,7 +598,7 @@ export default class LiveTraffic extends Component {
             />
           ))}
         </GoogleMapReact>
-        
+
         {/* Enhanced Info Panel */}
         <div style={styles.infoPanel}>
           {/* Header */}
@@ -521,7 +616,7 @@ export default class LiveTraffic extends Component {
               </div>
             </div>
           </div>
-          
+
           {/* Control Panel */}
           <div style={styles.controlPanel}>
             <button
@@ -535,22 +630,22 @@ export default class LiveTraffic extends Component {
               }}
               style={{
                 ...styles.controlButton,
-                background: showCars ? 
-                  'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                background: showCars ?
+                  'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
                   'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
               }}
             >
               <span style={{ fontSize: '16px' }}>{showCars ? '🚗' : '🚫'}</span>
               <span>{showCars ? 'Cars ON' : 'Cars OFF'}</span>
             </button>
-            
+
             <button
               className="control-btn"
               onClick={() => this.setState({ autoRefresh: !autoRefresh })}
               style={{
                 ...styles.controlButton,
-                background: autoRefresh ? 
-                  'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 
+                background: autoRefresh ?
+                  'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' :
                   'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
               }}
             >
@@ -570,7 +665,7 @@ export default class LiveTraffic extends Component {
               <span>Refresh</span>
             </button>
           </div>
-          
+
           {/* Live Stats */}
           <div style={styles.statsGrid}>
             <div style={styles.statCard}>
@@ -580,7 +675,7 @@ export default class LiveTraffic extends Component {
                 <div style={styles.statValue}>{totalVehicles.toLocaleString()}</div>
               </div>
             </div>
-            
+
             <div style={styles.statCard}>
               <div style={styles.statIcon}>📊</div>
               <div style={styles.statContent}>
@@ -588,7 +683,7 @@ export default class LiveTraffic extends Component {
                 <div style={styles.statValue}>{avgTraffic.toLocaleString()}</div>
               </div>
             </div>
-            
+
             <div style={styles.statCard}>
               <div style={styles.statIcon}>👁️</div>
               <div style={styles.statContent}>
@@ -596,38 +691,38 @@ export default class LiveTraffic extends Component {
                 <div style={styles.statValue}>{carPositions.length}</div>
               </div>
             </div>
-            
+
             <div style={styles.statCard}>
               <div style={styles.statIcon}>⏰</div>
               <div style={styles.statContent}>
                 <div style={styles.statLabel}>Last Update</div>
-                <div style={{...styles.statValue, fontSize: '13px'}}>
+                <div style={{ ...styles.statValue, fontSize: '13px' }}>
                   {lastUpdateTime.toLocaleTimeString('en-IN')}
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* Junction List */}
           <div style={styles.junctionSection}>
             <div style={styles.sectionHeader}>
               <span style={styles.sectionTitle}>Major Junctions</span>
               <span style={styles.sectionBadge}>Live</span>
             </div>
-            
+
             <div style={styles.junctionList}>
               {junctions.map((junction, idx) => {
                 const lightColor = this.state[`l${idx + 1}`];
                 const traffic = this.state[`c${idx + 1}`];
                 const congestion = traffic > 300 ? 'High' : traffic > 200 ? 'Moderate' : 'Low';
                 const isSelected = selectedJunction === idx;
-                
+
                 return (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="junction-item"
-                    onClick={() => this.setState({ 
-                      selectedJunction: isSelected ? null : idx 
+                    onClick={() => this.setState({
+                      selectedJunction: isSelected ? null : idx
                     })}
                     style={{
                       ...styles.junctionItem,
@@ -636,35 +731,35 @@ export default class LiveTraffic extends Component {
                     }}
                   >
                     <div style={styles.junctionIcon}>{junction.icon}</div>
-                    
-                    <div style={{flex: 1}}>
+
+                    <div style={{ flex: 1 }}>
                       <div style={styles.junctionHeader}>
                         <span style={styles.junctionName}>{junction.name}</span>
                         <div style={{
                           ...styles.lightIndicator,
                           background: lightColor === 'green' ? '#10b981' :
-                                     lightColor === 'yellow' ? '#f59e0b' : '#ef4444',
+                            lightColor === 'yellow' ? '#f59e0b' : '#ef4444',
                           boxShadow: `0 0 12px ${lightColor === 'green' ? '#10b981' :
-                                     lightColor === 'yellow' ? '#f59e0b' : '#ef4444'}`
-                        }}/>
+                            lightColor === 'yellow' ? '#f59e0b' : '#ef4444'}`
+                        }} />
                       </div>
-                      
+
                       <div style={styles.junctionDesc}>{junction.description}</div>
-                      
+
                       <div style={styles.junctionMetrics}>
                         <div style={styles.metricItem}>
                           <span style={styles.metricIcon}>🚗</span>
                           <span style={styles.metricValue}>{traffic}</span>
                         </div>
-                        
+
                         <div style={{
                           ...styles.congestionBadge,
                           background: congestion === 'High' ? '#fef2f2' :
-                                    congestion === 'Moderate' ? '#fef9c3' : '#f0fdf4',
+                            congestion === 'Moderate' ? '#fef9c3' : '#f0fdf4',
                           color: congestion === 'High' ? '#dc2626' :
-                                congestion === 'Moderate' ? '#ca8a04' : '#16a34a',
+                            congestion === 'Moderate' ? '#ca8a04' : '#16a34a',
                           border: `1px solid ${congestion === 'High' ? '#fecaca' :
-                                congestion === 'Moderate' ? '#fde047' : '#bbf7d0'}`
+                            congestion === 'Moderate' ? '#fde047' : '#bbf7d0'}`
                         }}>
                           {congestion}
                         </div>
@@ -675,7 +770,7 @@ export default class LiveTraffic extends Component {
               })}
             </div>
           </div>
-          
+
           {/* Footer */}
           <div style={styles.footer}>
             <div style={styles.footerBrand}>

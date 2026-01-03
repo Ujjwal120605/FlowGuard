@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import GoogleMapReact from 'google-map-react';
+import { metroLines } from './metroData';
 import { Button, Card, Select, Spin, Alert, Divider, message, Progress, Tag, Tooltip } from 'antd';
-import { 
-  SearchOutlined, SwapOutlined, ClockCircleOutlined, CarOutlined, 
-  InfoCircleOutlined, ThunderboltOutlined, FireOutlined, 
-  CheckCircleOutlined, WarningOutlined, RobotOutlined 
+import {
+  SearchOutlined, SwapOutlined, ClockCircleOutlined, CarOutlined,
+  InfoCircleOutlined, ThunderboltOutlined, FireOutlined,
+  CheckCircleOutlined, WarningOutlined, RobotOutlined, RocketOutlined
 } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -37,7 +38,7 @@ export default class RouteOptimizer extends Component {
 
   constructor() {
     super();
-    
+
     // Inject dark theme styles for Ant Design
     if (!document.getElementById('route-optimizer-dark-theme')) {
       const style = document.createElement('style');
@@ -129,7 +130,7 @@ export default class RouteOptimizer extends Component {
       `;
       document.head.appendChild(style);
     }
-    
+
     this.state = {
       origin: '',
       destination: '',
@@ -162,8 +163,11 @@ export default class RouteOptimizer extends Component {
         { name: 'Cubbon Park', lat: 12.9764, lng: 77.5925 },
         { name: 'Indiranagar', lat: 12.9716, lng: 77.6412 },
         { name: 'Jayanagar', lat: 12.9250, lng: 77.5838 },
-        { name: 'Hebbal', lat: 13.0358, lng: 77.5970 }
-      ]
+        { name: 'Hebbal', lat: 13.0358, lng: 77.5970 },
+        { name: 'Pattanegre', lat: 12.9366, lng: 77.5024 }
+      ],
+      metroRoute: null,
+      showMetro: false
     };
   }
 
@@ -178,18 +182,58 @@ export default class RouteOptimizer extends Component {
 
   loadMLPredictions = async () => {
     try {
-      // Try to load from JSON file first
-      const response = await fetch('/traffic_predictions.json');
-      if (response.ok) {
-        const predictions = await response.json();
+      const junctions = [
+        'Silk Board', 'Marathahalli', 'Koramangala',
+        'MG Road', 'Whitefield', 'Electronic City', 'Pattanegre'
+      ];
+
+      const predictions = {};
+
+      const promises = junctions.map(async (junctionName) => {
+        try {
+          const response = await fetch('/api/predict/traffic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ junction_name: junctionName })
+          });
+
+          if (!response.ok) throw new Error('API Error');
+
+          const data = await response.json();
+          // Map backend response to frontend expected structure
+          // We map 'Silk Board' -> 'Silk Board Junction' for consistency with UI names if needed
+
+          const hourlyData = data.predictions;
+          const currentTraffic = hourlyData[0]?.traffic_volume || 150;
+          const congestionLevel = hourlyData[0]?.congestion_level || 'Moderate';
+
+          // Store with "Junction" suffix if that's what the UI uses, or raw name
+          const uiKey = junctionName.includes('Road') || junctionName.includes('City') || junctionName.includes('Koramangala')
+            ? junctionName
+            : `${junctionName} Junction`;
+
+          predictions[uiKey] = {
+            current_traffic: currentTraffic,
+            congestion_level: congestionLevel,
+            confidence: 0.95
+          };
+
+        } catch (e) {
+          console.warn(`Failed to fetch prediction for ${junctionName}`, e);
+        }
+      });
+
+      await Promise.all(promises);
+
+      if (Object.keys(predictions).length > 0) {
         this.setState({ mlPredictions: predictions });
-        console.log('✅ ML Predictions loaded from file');
+        console.log('✅ ML Predictions loaded from API');
       } else {
-        // Fallback to generating predictions
-        this.generateMLPredictions();
+        this.generateMLPredictions(); // Fallback
       }
+
     } catch (error) {
-      console.log('⚠️ Using fallback ML predictions');
+      console.log('⚠️ Using fallback ML predictions', error);
       this.generateMLPredictions();
     }
   };
@@ -198,8 +242,8 @@ export default class RouteOptimizer extends Component {
     const currentHour = new Date().getHours();
     const currentDay = new Date().getDay();
     const isWeekend = currentDay === 0 || currentDay === 6;
-    const isRushHour = (currentHour >= 8 && currentHour <= 10) || 
-                       (currentHour >= 17 && currentHour <= 20);
+    const isRushHour = (currentHour >= 8 && currentHour <= 10) ||
+      (currentHour >= 17 && currentHour <= 20);
 
     const junctions = {
       'Silk Board Junction': { base: 180, rushMultiplier: 1.78 },
@@ -207,11 +251,12 @@ export default class RouteOptimizer extends Component {
       'Koramangala': { base: 160, rushMultiplier: 1.75 },
       'MG Road': { base: 170, rushMultiplier: 1.74 },
       'Whitefield': { base: 185, rushMultiplier: 1.68 },
-      'Electronic City': { base: 175, rushMultiplier: 1.74 }
+      'Electronic City': { base: 175, rushMultiplier: 1.74 },
+      'Pattanegre': { base: 160, rushMultiplier: 1.65 }
     };
 
     const predictions = {};
-    
+
     Object.entries(junctions).forEach(([name, config]) => {
       let traffic = config.base;
       if (isRushHour) traffic *= config.rushMultiplier;
@@ -230,20 +275,21 @@ export default class RouteOptimizer extends Component {
 
   calculateTrafficImpact = (route, originName, destName) => {
     const { mlPredictions } = this.state;
-    
+
     // Find traffic along route
-    let trafficFactor = 1.0;
+    // Bangalore Traffic Baseline (Always +30% due to general congestion)
+    let trafficFactor = 1.3;
     let hotspots = [];
 
     Object.entries(mlPredictions).forEach(([junction, data]) => {
       // Check if route passes through this junction
       if (this.isNearRoute(junction, route)) {
-        const congestionMultiplier = 
-          data.congestion_level === 'High' ? 1.4 : 
-          data.congestion_level === 'Moderate' ? 1.2 : 1.0;
-        
+        const congestionMultiplier =
+          data.congestion_level === 'High' ? 2.2 :  // Was 1.4, increasing for realism
+            data.congestion_level === 'Moderate' ? 1.5 : 1.1; // Was 1.2
+
         trafficFactor *= congestionMultiplier;
-        
+
         if (data.congestion_level !== 'Low') {
           hotspots.push({
             name: junction,
@@ -305,6 +351,148 @@ export default class RouteOptimizer extends Component {
     };
   };
 
+  calculateFuelCost = (distanceKm) => {
+    // Assumptions for Bangalore City Driving
+    const mileage = 12; // km/liter
+    const fuelPrice = 104; // Rs/liter (Petrol avg)
+    const cost = (distanceKm / mileage) * fuelPrice;
+    return Math.round(cost);
+  };
+
+  // ============================================
+  // METRO ROUTING LOGIC
+  // ============================================
+
+  buildMetroGraph = () => {
+    const graph = {};
+
+    Object.values(metroLines).forEach(line => {
+      line.stations.forEach((station, index) => {
+        if (!graph[station.name]) {
+          graph[station.name] = { ...station, neighbors: [] };
+        }
+
+        // Connect to next/prev stations on same line
+        if (index > 0) {
+          const prev = line.stations[index - 1];
+          graph[station.name].neighbors.push({ name: prev.name, line: line.name, color: line.color, time: 2.5 });
+        }
+        if (index < line.stations.length - 1) {
+          const next = line.stations[index + 1];
+          graph[station.name].neighbors.push({ name: next.name, line: line.name, color: line.color, time: 2.5 });
+        }
+      });
+    });
+
+    return graph;
+  };
+
+  findNearestMetro = (lat, lng) => {
+    let nearest = null;
+    let minDist = Infinity;
+
+    Object.values(metroLines).forEach(line => {
+      line.stations.forEach(station => {
+        const d = this.calculateDistance(lat, lng, station.lat, station.lng);
+        if (d < minDist) {
+          minDist = d;
+          nearest = station;
+        }
+      });
+    });
+
+    return { station: nearest, distance: minDist };
+  };
+
+  calculateDistance = (lat1, lon1, lat2, lon2) => {
+    // Haversine formula
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  calculateMetroRoute = (startCoord, endCoord) => {
+    if (!startCoord || !endCoord) return null;
+
+    const startNode = this.findNearestMetro(startCoord.lat, startCoord.lng);
+    const endNode = this.findNearestMetro(endCoord.lat, endCoord.lng);
+
+    if (!startNode.station || !endNode.station) return null;
+
+    // Limits: If nearest station is > 5km away, assume regular user won't take metro
+    if (startNode.distance > 8 || endNode.distance > 8) return null;
+
+    const graph = this.buildMetroGraph();
+    const queue = [[startNode.station.name]];
+    const visited = new Set();
+    const paths = {}; // Store path info
+
+    paths[startNode.station.name] = {
+      time: 0,
+      path: [],
+      lines: []
+    };
+
+    while (queue.length > 0) {
+      const path = queue.shift();
+      const currentName = path[path.length - 1];
+
+      if (currentName === endNode.station.name) {
+        // Found path
+        const fullPath = paths[currentName];
+
+        // Calculate total time: Metro + Walking
+        // Walk: 10 min/km (avg walking speed)
+        const walkTime = (startNode.distance + endNode.distance) * 10;
+        const totalTime = fullPath.time + walkTime;
+
+        return {
+          route: path,
+          lines: [...new Set(fullPath.lines)],
+          metroTime: Math.round(fullPath.time),
+          walkTime: Math.round(walkTime),
+          totalTime: Math.round(totalTime),
+          startStation: startNode.station,
+          endStation: endNode.station,
+          startWalk: startNode.distance,
+          endWalk: endNode.distance,
+          price: Math.min(60, 10 + (path.length * 2.5)) // Approx pricing logic
+        };
+      }
+
+      if (visited.has(currentName)) continue;
+      visited.add(currentName);
+
+      const node = graph[currentName];
+      if (node && node.neighbors) {
+        node.neighbors.forEach(neighbor => {
+          if (!visited.has(neighbor.name)) {
+            const newPath = [...path, neighbor.name];
+            queue.push(newPath);
+
+            // Update time
+            const prevData = paths[currentName];
+            const isInterchange = prevData.lines.length > 0 &&
+              prevData.lines[prevData.lines.length - 1] !== neighbor.line;
+            const penalty = isInterchange ? 8 : 0; // 8 min for switching/waiting
+
+            paths[neighbor.name] = {
+              time: prevData.time + neighbor.time + penalty,
+              lines: [...prevData.lines, neighbor.line]
+            };
+          }
+        });
+      }
+    }
+
+    return null; // No route found
+  };
+
   // ============================================
   // EXISTING GEOCODING & ROUTING FUNCTIONS
   // ============================================
@@ -313,7 +501,7 @@ export default class RouteOptimizer extends Component {
     const popularLocation = this.state.popularLocations.find(
       loc => loc.name.toLowerCase() === address.toLowerCase()
     );
-    
+
     if (popularLocation) {
       console.log(`✅ Using coordinates for: ${popularLocation.name}`);
       return { lat: popularLocation.lat, lng: popularLocation.lng };
@@ -328,13 +516,13 @@ export default class RouteOptimizer extends Component {
           }
         }
       );
-      
+
       if (!response.ok) {
         throw new Error(`Geocoding failed: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         console.log(`✅ Geocoded: ${address}`);
         return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -373,7 +561,7 @@ export default class RouteOptimizer extends Component {
       this.setState({ originCoords, destinationCoords: destCoords });
 
       const ORS_API_KEY = process.env.REACT_APP_OPENROUTE_API_KEY;
-      
+
       if (!ORS_API_KEY) {
         throw new Error('OpenRouteService API key not configured. Please add REACT_APP_OPENROUTE_API_KEY to your .env file');
       }
@@ -381,7 +569,7 @@ export default class RouteOptimizer extends Component {
       console.log('🔑 Calling OpenRouteService API with ML enhancement...');
 
       const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${ORS_API_KEY}&start=${originCoords.lng},${originCoords.lat}&end=${destCoords.lng},${destCoords.lat}`;
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -409,15 +597,15 @@ export default class RouteOptimizer extends Component {
           const summary = feature.properties.summary;
           const distanceKm = summary.distance / 1000;
           const durationMin = summary.duration / 60;
-          
+
           // Apply ML traffic predictions
           const { trafficFactor, hotspots } = this.calculateTrafficImpact(
             feature, origin, destination
           );
-          
+
           // Calculate estimates
           const estimates = this.calculateEstimates(distanceKm, durationMin, trafficFactor);
-          
+
           return {
             index,
             distance: `${distanceKm.toFixed(1)} km`,
@@ -441,7 +629,37 @@ export default class RouteOptimizer extends Component {
         routes[0].recommended = true;
 
         const selectedRoute = routes[0];
+        // Calculate Metro Route
+        const metroRoute = this.calculateMetroRoute(originCoords, destCoords);
+        if (metroRoute) {
+          console.log("🚇 Metro Route found:", metroRoute);
+        }
+
+        // Calculate Fuel Cost for Car
+        const fuelCost = this.calculateFuelCost(selectedRoute.distanceValue / 1000);
+        selectedRoute.fuelCost = fuelCost;
+
         const bestTime = this.calculateOptimalDepartureTime();
+
+        // Compare Car vs Metro (Time & Cost)
+        let recommendation = "car";
+        let reason = "";
+
+        const carTime = selectedRoute.mlAdjustedMinutes;
+        const metroTime = metroRoute ? metroRoute.totalTime : Infinity;
+        const metroCost = metroRoute ? metroRoute.price : Infinity;
+
+        if (metroRoute) {
+          if (metroTime < carTime) {
+            recommendation = "metro";
+            const traffic = selectedRoute.trafficFactor > 1.3 ? "Heavy Traffic" : "Moderate Traffic";
+            const worstHotspot = selectedRoute.hotspots.length > 0 ? ` at ${selectedRoute.hotspots[0].name}` : "";
+            reason = ` due to ${traffic}${worstHotspot}`;
+          } else if (fuelCost - metroCost > 150 && (metroTime - carTime) < 15) {
+            recommendation = "metro";
+            reason = ` because it saves ₹${fuelCost - metroCost}`;
+          }
+        }
 
         this.setState({
           routes,
@@ -452,12 +670,20 @@ export default class RouteOptimizer extends Component {
           routePath: selectedRoute.coordinates,
           trafficHotspots: selectedRoute.hotspots,
           bestTimeToLeave: bestTime,
-          loading: false
+          loading: false,
+          metroRoute: metroRoute,
+          recommendation: recommendation
         });
 
+        const text = recommendation === 'metro'
+          ? `Metro is recommended${reason}!`
+          : `Found ${routes.length} route(s)! Car is optimal.`;
+
+        const icon = recommendation === 'metro' ? <RocketOutlined style={{ color: '#722ed1' }} /> : <RobotOutlined style={{ color: '#52c41a' }} />;
+
         message.success({
-          content: `Found ${routes.length} route(s) with ML predictions!`,
-          icon: <RobotOutlined style={{ color: '#52c41a' }} />
+          content: text,
+          icon: icon
         });
 
         if (this.map && this.maps) {
@@ -482,14 +708,14 @@ export default class RouteOptimizer extends Component {
     const trafficScore = (2.0 - trafficFactor) * 40; // Max 40 points
     const distanceScore = Math.max(0, (30 - distanceKm)) * 2; // Max 30 points  
     const durationScore = Math.max(0, (60 - durationMin)) * 0.5; // Max 30 points
-    
+
     return Math.round(trafficScore + distanceScore + durationScore);
   };
 
   formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -546,7 +772,7 @@ export default class RouteOptimizer extends Component {
   };
 
   selectRoute = (route) => {
-    this.setState({ 
+    this.setState({
       selectedRoute: route,
       travelTime: route.mlAdjustedDuration,
       distance: route.distance,
@@ -557,7 +783,7 @@ export default class RouteOptimizer extends Component {
       content: `Switched to Route ${route.index + 1} (ML Score: ${route.mlScore})`,
       icon: <RobotOutlined />
     });
-    
+
     if (this.map && this.maps) {
       this.drawRouteOnMap(route.coordinates);
     }
@@ -578,12 +804,12 @@ export default class RouteOptimizer extends Component {
           <p style={styles.subtitle}>
             AI Traffic Predictions • Real-time Navigation • Smart Routing
           </p>
-          
+
           <div style={styles.badgeContainer}>
-            <div style={{...styles.statusBadge, background: '#d1fae5', color: '#065f46'}}>
+            <div style={{ ...styles.statusBadge, background: '#d1fae5', color: '#065f46' }}>
               <RobotOutlined /> ML Active
             </div>
-            <div style={{...styles.statusBadge, background: '#dbeafe', color: '#1e40af'}}>
+            <div style={{ ...styles.statusBadge, background: '#dbeafe', color: '#1e40af' }}>
               <CheckCircleOutlined /> OpenRouteService
             </div>
           </div>
@@ -664,9 +890,9 @@ export default class RouteOptimizer extends Component {
                   <div>
                     <strong>{error}</strong>
                     {error.includes('API key') && (
-                      <div style={{marginTop: '10px', fontSize: '13px'}}>
+                      <div style={{ marginTop: '10px', fontSize: '13px' }}>
                         <strong>How to fix:</strong>
-                        <ol style={{marginTop: '5px', paddingLeft: '20px'}}>
+                        <ol style={{ marginTop: '5px', paddingLeft: '20px' }}>
                           <li>Sign up at <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">OpenRouteService</a></li>
                           <li>Get your API key</li>
                           <li>Add to .env: <code>REACT_APP_OPENROUTE_API_KEY=your_key</code></li>
@@ -683,7 +909,7 @@ export default class RouteOptimizer extends Component {
                 onClose={() => this.setState({ error: null })}
               />
             )}
-            
+
             {!error && !selectedRoute && (
               <Alert
                 message={
@@ -699,15 +925,75 @@ export default class RouteOptimizer extends Component {
             )}
           </Card>
 
+          {/* RESULTS AREA */}
           {selectedRoute && (
             <div style={styles.resultsContainer}>
+
+              {/* METRO CARD (If Recommended or Available) */}
+              {this.state.metroRoute && (
+                <Card
+                  style={{
+                    ...styles.routeCard,
+                    border: this.state.recommendation === 'metro' ? '2px solid #722ed1' : '1px solid #2a3550',
+                    marginBottom: '16px'
+                  }}
+                  title={
+                    <div style={styles.routeHeader}>
+                      <span style={{ color: this.state.recommendation === 'metro' ? '#d3adf7' : '#e0e4f0' }}>
+                        <RocketOutlined style={{ marginRight: '8px' }} />
+                        {this.state.recommendation === 'metro' ? 'Recommended: Metro' : 'Alternative: Metro'}
+                      </span>
+                      {this.state.recommendation === 'metro' &&
+                        <Tag color="purple">Fastest</Tag>
+                      }
+                    </div>
+                  }
+                >
+                  <div style={styles.routeInfo}>
+                    <div style={styles.infoItem}>
+                      <ClockCircleOutlined style={{ ...styles.infoIcon, color: '#d3adf7' }} />
+                      <div>
+                        <div style={styles.infoLabel}>Total Time</div>
+                        <div style={styles.infoValue}>{this.formatDuration(this.state.metroRoute.totalTime * 60)}</div>
+                        <div style={{ fontSize: '11px', opacity: 0.6 }}>
+                          Ride: {this.state.metroRoute.metroTime}m | Walk: {this.state.metroRoute.walkTime}m
+                        </div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <InfoCircleOutlined style={{ ...styles.infoIcon, color: '#d3adf7' }} />
+                      <div>
+                        <div style={styles.infoLabel}>Cost</div>
+                        <div style={styles.infoValue}>₹{this.state.metroRoute.price}</div>
+                        <div style={{ fontSize: '11px', opacity: 0.6 }}>Est. Ticket</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider style={{ margin: '12px 0' }} />
+
+                  <div style={{ fontSize: '13px', color: '#c5cbd9' }}>
+                    <strong>🚉 Path:</strong> Only {this.state.metroRoute.lines.join(' -> ')} Line
+                    <div style={{ marginTop: '4px' }}>
+                      Start: <Tag>{this.state.metroRoute.startStation.name}</Tag>
+                      → End: <Tag>{this.state.metroRoute.endStation.name}</Tag>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* CAR CARD */}
               <Card
-                style={styles.routeCard}
+                style={{
+                  ...styles.routeCard,
+                  border: this.state.recommendation === 'car' ? '2px solid #52c41a' : '1px solid #2a3550',
+                  opacity: this.state.recommendation === 'metro' ? 0.8 : 1
+                }}
                 title={
                   <div style={styles.routeHeader}>
                     {selectedRoute.recommended && <ThunderboltOutlined style={{ marginRight: '8px', color: '#ffd700' }} />}
-                    <span>ML Recommended Route</span>
-                    <Tag color="gold" style={{marginLeft: '8px'}}>
+                    <span>{this.state.recommendation === 'car' ? 'Recommended: Car' : 'Car Route'}</span>
+                    <Tag color="gold" style={{ marginLeft: '8px' }}>
                       Score: {selectedRoute.mlScore}
                     </Tag>
                   </div>
@@ -720,7 +1006,7 @@ export default class RouteOptimizer extends Component {
                       <div style={styles.infoLabel}>ML Predicted Time</div>
                       <div style={styles.infoValue}>{travelTime}</div>
                       {selectedRoute.timeSaved !== 0 && (
-                        <div style={{fontSize: '11px', opacity: 0.8, marginTop: '4px'}}>
+                        <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
                           {selectedRoute.timeSaved > 0 ? '+' : ''}{selectedRoute.timeSaved} min vs normal
                         </div>
                       )}
@@ -731,40 +1017,40 @@ export default class RouteOptimizer extends Component {
                     <div>
                       <div style={styles.infoLabel}>Distance</div>
                       <div style={styles.infoValue}>{distance}</div>
-                      <div style={{fontSize: '11px', opacity: 0.8, marginTop: '4px'}}>
-                        {selectedRoute.fuelLiters}L fuel
+                      <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
+                        ₹{selectedRoute.fuelCost} est. fuel
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <Divider style={{borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0'}} />
+                <Divider style={{ borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0' }} />
 
                 <div style={styles.mlInsights}>
                   <div style={styles.insightRow}>
                     <strong>🚦 Traffic Impact:</strong>
-                    <Progress 
+                    <Progress
                       percent={Math.round((2 - selectedRoute.trafficFactor) * 50)}
                       size="small"
                       strokeColor={
-                        selectedRoute.trafficFactor > 1.3 ? '#ff4d4f' : 
-                        selectedRoute.trafficFactor > 1.1 ? '#faad14' : '#52c41a'
+                        selectedRoute.trafficFactor > 1.3 ? '#ff4d4f' :
+                          selectedRoute.trafficFactor > 1.1 ? '#faad14' : '#52c41a'
                       }
-                      style={{flex: 1, marginLeft: '8px'}}
+                      style={{ flex: 1, marginLeft: '8px' }}
                       format={(percent) => `${percent}% Clear`}
                     />
                   </div>
                   <div style={styles.insightRow}>
                     <strong>⚡ Route Type:</strong> {selectedRoute.summary}
                   </div>
-                  
+
                 </div>
 
                 {trafficHotspots.length > 0 && (
                   <>
-                    <Divider style={{borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0'}} />
+                    <Divider style={{ borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0' }} />
                     <div style={styles.hotspots}>
-                      <strong style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', fontSize: '13px'}}>
+                      <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', fontSize: '13px' }}>
                         <WarningOutlined /> Traffic Congestion Points:
                       </strong>
                       <div style={styles.hotspotGrid}>
@@ -790,7 +1076,7 @@ export default class RouteOptimizer extends Component {
 
                 {bestTimeToLeave && (
                   <>
-                    <Divider style={{borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0'}} />
+                    <Divider style={{ borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0' }} />
                     <div style={styles.bestTime}>
                       <div style={styles.bestTimeIcon}>
                         <ClockCircleOutlined />
@@ -818,8 +1104,8 @@ export default class RouteOptimizer extends Component {
                       onClick={() => this.selectRoute(route)}
                     >
                       <div style={styles.alternateInfo}>
-                        <div style={{flex: 1}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px'}}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                             <strong>Route {idx + 2}</strong>
                             <Tag color={route.mlScore > 70 ? 'green' : route.mlScore > 50 ? 'orange' : 'red'}>
                               ML Score: {route.mlScore}
@@ -832,7 +1118,7 @@ export default class RouteOptimizer extends Component {
                             {route.summary} • Traffic Factor: {route.trafficFactor.toFixed(2)}x
                           </div>
                           {route.hotspots.length > 0 && (
-                            <div style={{marginTop: '6px', fontSize: '11px', color: '#ff4d4f'}}>
+                            <div style={{ marginTop: '6px', fontSize: '11px', color: '#ff4d4f' }}>
                               ⚠️ {route.hotspots.length} congestion point{route.hotspots.length > 1 ? 's' : ''}
                             </div>
                           )}
@@ -860,7 +1146,7 @@ export default class RouteOptimizer extends Component {
               {loading && (
                 <div style={styles.loadingOverlay}>
                   <Spin size="large" tip="ML analyzing traffic patterns..." />
-                  <div style={{marginTop: '16px', fontSize: '13px', color: '#666'}}>
+                  <div style={{ marginTop: '16px', fontSize: '13px', color: '#666' }}>
                     🤖 Processing 80,000+ data points
                   </div>
                 </div>
@@ -877,7 +1163,7 @@ export default class RouteOptimizer extends Component {
                   this.map = map;
                   this.maps = maps;
                   console.log('🗺️ Google Maps loaded with ML integration');
-                  
+
                   if (this.state.routePath) {
                     this.drawRouteOnMap(this.state.routePath);
                   }
@@ -911,11 +1197,11 @@ export default class RouteOptimizer extends Component {
 
         {/* ML Performance Stats Footer */}
         {selectedRoute && (
-          <Card 
-            style={{...styles.statsCard, marginTop: '20px'}}
+          <Card
+            style={{ ...styles.statsCard, marginTop: '20px' }}
             title={
               <span>
-                <RobotOutlined style={{marginRight: '8px'}} />
+                <RobotOutlined style={{ marginRight: '8px' }} />
                 ML Performance Metrics
               </span>
             }

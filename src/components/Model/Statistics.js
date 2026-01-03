@@ -8,7 +8,7 @@ export default class Statistics extends React.Component {
   state = {
     mlPredictions: null,
     liveData: {
-      totalJunctions: 6,
+      totalJunctions: 7,
       avgDailyTraffic: 18400,
       peakWaitTime: 5.8,
       busiestDay: 'Friday',
@@ -20,7 +20,7 @@ export default class Statistics extends React.Component {
 
   componentDidMount() {
     this.loadMLData();
-    
+
     setTimeout(() => {
       this.createAllCharts();
     }, 100);
@@ -41,17 +41,17 @@ export default class Statistics extends React.Component {
 
   async loadMLData() {
     this.setState({ dataLoading: true });
-    
+
     try {
       const predictions = this.generateMLPredictions();
-      
+
       this.setState({
         mlPredictions: predictions,
         dataLoading: false
       });
-      
+
       this.updateChartsWithLiveData(predictions);
-      
+
     } catch (error) {
       console.error('Failed to load ML data:', error);
       this.setState({ dataLoading: false });
@@ -60,20 +60,21 @@ export default class Statistics extends React.Component {
 
   generateMLPredictions() {
     const currentHour = new Date().getHours();
-    const isRushHour = (currentHour >= 8 && currentHour <= 10) || 
-                       (currentHour >= 17 && currentHour <= 20);
-    
+    const isRushHour = (currentHour >= 8 && currentHour <= 10) ||
+      (currentHour >= 17 && currentHour <= 20);
+
     const junctions = {
       'Silk Board': { base: 180, rush: 320, coords: [12.9176, 77.6227] },
       'Marathahalli': { base: 200, rush: 350, coords: [12.9591, 77.6974] },
       'Koramangala': { base: 160, rush: 280, coords: [12.9352, 77.6245] },
       'MG Road': { base: 170, rush: 295, coords: [12.9716, 77.5946] },
       'Whitefield': { base: 185, rush: 310, coords: [12.9698, 77.7499] },
-      'Electronic City': { base: 175, rush: 305, coords: [12.8456, 77.6603] }
+      'Electronic City': { base: 175, rush: 305, coords: [12.8456, 77.6603] },
+      'Pattanegre': { base: 165, rush: 290, coords: [12.9366, 77.5024] }
     };
 
     const predictions = {};
-    
+
     Object.entries(junctions).forEach(([name, data]) => {
       const current = isRushHour ? data.rush : data.base;
       predictions[name] = {
@@ -90,8 +91,8 @@ export default class Statistics extends React.Component {
   refreshLiveData() {
     const predictions = this.generateMLPredictions();
     const avgTraffic = Object.values(predictions)
-      .reduce((sum, p) => sum + p.current, 0) / 6;
-    
+      .reduce((sum, p) => sum + p.current, 0) / 7;
+
     this.setState({
       mlPredictions: predictions,
       liveData: {
@@ -100,13 +101,13 @@ export default class Statistics extends React.Component {
         currentHour: new Date().getHours()
       }
     });
-    
+
     this.updateChartsWithLiveData(predictions);
   }
 
   updateChartsWithLiveData(predictions) {
     if (!predictions || Object.keys(this.chartInstances).length === 0) return;
-    
+
     if (this.chartInstances.junction) {
       const data = Object.values(predictions).map(p => p.current);
       this.chartInstances.junction.data.datasets[0].data = data;
@@ -116,10 +117,10 @@ export default class Statistics extends React.Component {
 
   createAllCharts = () => {
     const { mlPredictions } = this.state;
-    
-    const junctionData = mlPredictions ? 
+
+    const junctionData = mlPredictions ?
       Object.values(mlPredictions).map(p => p.current) :
-      [320, 350, 280, 295, 310, 305];
+      [320, 350, 280, 295, 310, 305, 290];
 
     this.createJunctionTrafficChart(junctionData);
     this.createHourlyPatternChart();
@@ -134,25 +135,25 @@ export default class Statistics extends React.Component {
   createJunctionTrafficChart(data) {
     const ctx = document.getElementById('junctionTrafficChart');
     if (!ctx) return;
-    
+
     this.chartInstances.junction = new ChartJS(ctx.getContext("2d"), {
       type: 'bar',
       data: {
-        labels: ['Silk Board', 'Marathahalli', 'Koramangala', 'MG Road', 'Whitefield', 'E-City'],
+        labels: ['Silk Board', 'Marathahalli', 'Koramangala', 'MG Road', 'Whitefield', 'E-City', 'Pattanegre'],
         datasets: [{
           label: 'Current Traffic (Vehicles)',
           data: data,
-          backgroundColor: data.map(val => 
+          backgroundColor: data.map(val =>
             val > 300 ? 'rgba(239, 68, 68, 0.8)' :
-            val > 250 ? 'rgba(251, 146, 60, 0.8)' :
-            val > 200 ? 'rgba(250, 204, 21, 0.8)' :
-            'rgba(34, 197, 94, 0.8)'
+              val > 250 ? 'rgba(251, 146, 60, 0.8)' :
+                val > 200 ? 'rgba(250, 204, 21, 0.8)' :
+                  'rgba(34, 197, 94, 0.8)'
           ),
-          borderColor: data.map(val => 
+          borderColor: data.map(val =>
             val > 300 ? 'rgb(239, 68, 68)' :
-            val > 250 ? 'rgb(251, 146, 60)' :
-            val > 200 ? 'rgb(250, 204, 21)' :
-            'rgb(34, 197, 94)'
+              val > 250 ? 'rgb(251, 146, 60)' :
+                val > 200 ? 'rgb(250, 204, 21)' :
+                  'rgb(34, 197, 94)'
           ),
           borderWidth: 2
         }]
@@ -188,12 +189,12 @@ export default class Statistics extends React.Component {
   createHourlyPatternChart() {
     const ctx = document.getElementById('peakHoursChart');
     if (!ctx) return;
-    
+
     this.chartInstances.peakHours = new ChartJS(ctx, {
       type: 'line',
       data: {
-        labels: ['6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', 
-                 '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM'],
+        labels: ['6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM',
+          '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM'],
         datasets: [
           {
             label: 'Silk Board',
@@ -252,7 +253,7 @@ export default class Statistics extends React.Component {
   createMLPerformanceChart() {
     const ctx = document.getElementById('mlPerformanceChart');
     if (!ctx) return;
-    
+
     this.chartInstances.mlPerformance = new ChartJS(ctx, {
       type: 'doughnut',
       data: {
@@ -289,7 +290,7 @@ export default class Statistics extends React.Component {
   createWeeklyRadarChart() {
     const ctx = document.getElementById('weeklyTrafficChart');
     if (!ctx) return;
-    
+
     this.chartInstances.weeklyTraffic = new ChartJS(ctx, {
       type: 'radar',
       data: {
@@ -331,7 +332,7 @@ export default class Statistics extends React.Component {
           position: 'top'
         },
         scale: {
-          ticks: { 
+          ticks: {
             beginAtZero: true,
             max: 100,
             stepSize: 20
@@ -344,30 +345,30 @@ export default class Statistics extends React.Component {
   createVehicleTypeChart() {
     const ctx = document.getElementById('vehicleTypeChart');
     if (!ctx) return;
-    
+
     this.chartInstances.vehicleType = new ChartJS(ctx, {
       type: 'bar',
       data: {
-        labels: ['Silk Board', 'Marathahalli', 'Koramangala', 'MG Road', 'Whitefield', 'E-City'],
+        labels: ['Silk Board', 'Marathahalli', 'Koramangala', 'MG Road', 'Whitefield', 'E-City', 'Pattanegre'],
         datasets: [
           {
             label: 'Cars',
-            data: [1800, 1950, 1600, 1700, 1850, 1750],
+            data: [1800, 1950, 1600, 1700, 1850, 1750, 1650],
             backgroundColor: 'rgba(34, 197, 94, 0.8)'
           },
           {
             label: 'Two-Wheelers',
-            data: [900, 950, 800, 850, 900, 850],
+            data: [900, 950, 800, 850, 900, 850, 780],
             backgroundColor: 'rgba(59, 130, 246, 0.8)'
           },
           {
             label: 'Autos',
-            data: [300, 320, 250, 270, 210, 200],
+            data: [300, 320, 250, 270, 210, 200, 180],
             backgroundColor: 'rgba(251, 191, 36, 0.8)'
           },
           {
             label: 'Buses/Trucks',
-            data: [200, 230, 150, 130, 140, 100],
+            data: [200, 230, 150, 130, 140, 100, 90],
             backgroundColor: 'rgba(239, 68, 68, 0.8)'
           }
         ]
@@ -386,7 +387,7 @@ export default class Statistics extends React.Component {
           position: 'top'
         },
         scales: {
-          xAxes: [{ 
+          xAxes: [{
             stacked: true
           }],
           yAxes: [{
@@ -406,7 +407,7 @@ export default class Statistics extends React.Component {
   createPredictionAccuracyChart() {
     const ctx = document.getElementById('predictionAccuracyChart');
     if (!ctx) return;
-    
+
     this.chartInstances.predictionAccuracy = new ChartJS(ctx, {
       type: 'line',
       data: {
@@ -444,7 +445,7 @@ export default class Statistics extends React.Component {
         },
         scales: {
           yAxes: [{
-            ticks: { 
+            ticks: {
               min: 75,
               max: 90
             },
@@ -463,17 +464,17 @@ export default class Statistics extends React.Component {
   createCongestionHeatmap() {
     const ctx = document.getElementById('congestionHeatmap');
     if (!ctx) return;
-    
+
     const heatmapData = [
-      [85, 70, 65, 60, 55, 65],
-      [90, 75, 70, 65, 60, 70],
-      [95, 85, 78, 72, 70, 80],
-      [100, 95, 88, 85, 82, 90],
-      [98, 92, 85, 80, 78, 88],
-      [75, 65, 60, 55, 52, 60],
-      [60, 50, 45, 40, 38, 45]
+      [85, 70, 65, 60, 55, 65, 60],
+      [90, 75, 70, 65, 60, 70, 65],
+      [95, 85, 78, 72, 70, 80, 75],
+      [100, 95, 88, 85, 82, 90, 85],
+      [98, 92, 85, 80, 78, 88, 82],
+      [75, 65, 60, 55, 52, 60, 55],
+      [60, 50, 45, 40, 38, 45, 40]
     ];
-    
+
     this.chartInstances.congestionHeatmap = new ChartJS(ctx, {
       type: 'bar',
       data: {
@@ -508,6 +509,11 @@ export default class Statistics extends React.Component {
             label: 'E-City',
             data: heatmapData.map(d => d[5]),
             backgroundColor: 'rgba(168, 85, 247, 0.7)'
+          },
+          {
+            label: 'Pattanegre',
+            data: heatmapData.map(d => d[6]),
+            backgroundColor: 'rgba(236, 72, 153, 0.7)'
           }
         ]
       },
@@ -541,7 +547,7 @@ export default class Statistics extends React.Component {
   createTrafficFlowChart() {
     const ctx = document.getElementById('trafficFlowChart');
     if (!ctx) return;
-    
+
     this.chartInstances.trafficFlow = new ChartJS(ctx, {
       type: 'line',
       data: {
@@ -601,7 +607,7 @@ export default class Statistics extends React.Component {
 
   render() {
     const { liveData, mlPredictions, dataLoading } = this.state;
-    
+
     return (
       <div style={styles.container}>
         <div style={styles.content}>
@@ -616,7 +622,7 @@ export default class Statistics extends React.Component {
             </div>
             {dataLoading && <div style={styles.loader}>🔄 Updating...</div>}
           </div>
-          
+
           <div style={styles.mlBanner}>
             <div style={styles.mlBannerContent}>
               <div style={styles.mlIcon}>🤖</div>
@@ -634,7 +640,7 @@ export default class Statistics extends React.Component {
               <div style={styles.mlStatLabel}>Total Active Vehicles</div>
             </div>
           </div>
-          
+
           <div style={styles.cardGrid}>
             <div style={styles.card}>
               <div style={styles.cardIcon}>📍</div>
@@ -673,7 +679,7 @@ export default class Statistics extends React.Component {
               <p style={styles.cardSubtitle}>Training samples</p>
             </div>
           </div>
-          
+
           <div style={styles.chartsGrid}>
             <div style={styles.chartCard}>
               <canvas id="junctionTrafficChart"></canvas>
@@ -739,7 +745,7 @@ export default class Statistics extends React.Component {
                 </ul>
               </div>
             </div>
-            
+
             <div style={styles.mlModelBox}>
               <h3 style={styles.insightTitle}>💡 ML Prediction Model Performance</h3>
               <div style={styles.modelMetrics}>
@@ -768,7 +774,7 @@ export default class Statistics extends React.Component {
                   <div style={styles.metricValue}>24 hours ahead</div>
                 </div>
               </div>
-              
+
               <div style={styles.predictionNote}>
                 <strong>Next Hour Predictions:</strong>
                 <div style={styles.predictionList}>
@@ -807,7 +813,7 @@ export default class Statistics extends React.Component {
                       <td style={styles.td}>{row.mg}</td>
                       <td style={styles.td}>{row.wf}</td>
                       <td style={styles.td}>{row.ec}</td>
-                      <td style={{...styles.td, fontWeight: 'bold'}}>{row.total}</td>
+                      <td style={{ ...styles.td, fontWeight: 'bold' }}>{row.total}</td>
                       <td style={styles.td}>
                         <span style={{
                           ...styles.statusBadge,
@@ -835,48 +841,48 @@ export default class Statistics extends React.Component {
 
   renderJunctionCards() {
     const junctions = [
-      { 
-        name: 'Silk Board', 
+      {
+        name: 'Silk Board',
         location: 'Hosur Road & Outer Ring Road',
         current: this.state.mlPredictions && this.state.mlPredictions['Silk Board'] ? this.state.mlPredictions['Silk Board'].current : 320,
         peak: 350,
         status: 'Critical',
         emoji: '🔴'
       },
-      { 
-        name: 'Marathahalli', 
+      {
+        name: 'Marathahalli',
         location: 'IT Corridor Hub',
         current: this.state.mlPredictions && this.state.mlPredictions['Marathahalli'] ? this.state.mlPredictions['Marathahalli'].current : 350,
         peak: 380,
         status: 'Critical',
         emoji: '🔴'
       },
-      { 
-        name: 'Koramangala', 
+      {
+        name: 'Koramangala',
         location: '80 Feet Road Junction',
         current: this.state.mlPredictions && this.state.mlPredictions['Koramangala'] ? this.state.mlPredictions['Koramangala'].current : 280,
         peak: 310,
         status: 'Heavy',
         emoji: '🟠'
       },
-      { 
-        name: 'MG Road', 
+      {
+        name: 'MG Road',
         location: 'City Center',
         current: this.state.mlPredictions && this.state.mlPredictions['MG Road'] ? this.state.mlPredictions['MG Road'].current : 295,
         peak: 325,
         status: 'Heavy',
         emoji: '🟠'
       },
-      { 
-        name: 'Whitefield', 
+      {
+        name: 'Whitefield',
         location: 'ITPL Main Road',
         current: this.state.mlPredictions && this.state.mlPredictions['Whitefield'] ? this.state.mlPredictions['Whitefield'].current : 310,
         peak: 340,
         status: 'Critical',
         emoji: '🔴'
       },
-      { 
-        name: 'Electronic City', 
+      {
+        name: 'Electronic City',
         location: 'Hosur Road IT Hub',
         current: this.state.mlPredictions && this.state.mlPredictions['Electronic City'] ? this.state.mlPredictions['Electronic City'].current : 305,
         peak: 335,
@@ -893,10 +899,10 @@ export default class Statistics extends React.Component {
           </h3>
           <span style={{
             ...styles.statusBadge,
-            background: junction.status === 'Critical' ? '#fee2e2' : 
-                       junction.status === 'Heavy' ? '#fef3c7' : '#dcfce7',
-            color: junction.status === 'Critical' ? '#991b1b' : 
-                  junction.status === 'Heavy' ? '#854d0e' : '#166534'
+            background: junction.status === 'Critical' ? '#fee2e2' :
+              junction.status === 'Heavy' ? '#fef3c7' : '#dcfce7',
+            color: junction.status === 'Critical' ? '#991b1b' :
+              junction.status === 'Heavy' ? '#854d0e' : '#166534'
           }}>
             {junction.status}
           </span>
@@ -916,9 +922,9 @@ export default class Statistics extends React.Component {
           <div style={{
             ...styles.progressFill,
             width: `${(junction.current / junction.peak) * 100}%`,
-            background: junction.status === 'Critical' ? '#ef4444' : 
-                       junction.status === 'Heavy' ? '#f59e0b' : '#10b981'
-          }}/>
+            background: junction.status === 'Critical' ? '#ef4444' :
+              junction.status === 'Heavy' ? '#f59e0b' : '#10b981'
+          }} />
         </div>
       </div>
     ));
@@ -926,16 +932,16 @@ export default class Statistics extends React.Component {
 
   generateTableData = () => {
     const data = [
-      {time: 'Today, 08:00', sb: 280, mh: 300, kr: 250, mg: 270, wf: 290, ec: 275, total: 1665},
-      {time: 'Today, 09:00', sb: 320, mh: 340, kr: 280, mg: 295, wf: 310, ec: 305, total: 1850},
-      {time: 'Today, 10:00', sb: 250, mh: 270, kr: 230, mg: 245, wf: 260, ec: 255, total: 1510},
-      {time: 'Today, 17:00', sb: 300, mh: 320, kr: 270, mg: 285, wf: 300, ec: 295, total: 1770},
-      {time: 'Today, 18:00', sb: 350, mh: 370, kr: 310, mg: 325, wf: 340, ec: 335, total: 2030},
-      {time: 'Today, 19:00', sb: 310, mh: 330, kr: 290, mg: 305, wf: 320, ec: 315, total: 1870},
-      {time: 'Yesterday, 08:00', sb: 275, mh: 295, kr: 245, mg: 265, wf: 285, ec: 270, total: 1635},
-      {time: 'Yesterday, 18:00', sb: 345, mh: 365, kr: 305, mg: 320, wf: 335, ec: 330, total: 2000},
-      {time: 'Nov 14, 08:00', sb: 270, mh: 290, kr: 240, mg: 260, wf: 280, ec: 265, total: 1605},
-      {time: 'Nov 14, 18:00', sb: 340, mh: 360, kr: 300, mg: 315, wf: 330, ec: 325, total: 1970}
+      { time: 'Today, 08:00', sb: 280, mh: 300, kr: 250, mg: 270, wf: 290, ec: 275, total: 1665 },
+      { time: 'Today, 09:00', sb: 320, mh: 340, kr: 280, mg: 295, wf: 310, ec: 305, total: 1850 },
+      { time: 'Today, 10:00', sb: 250, mh: 270, kr: 230, mg: 245, wf: 260, ec: 255, total: 1510 },
+      { time: 'Today, 17:00', sb: 300, mh: 320, kr: 270, mg: 285, wf: 300, ec: 295, total: 1770 },
+      { time: 'Today, 18:00', sb: 350, mh: 370, kr: 310, mg: 325, wf: 340, ec: 335, total: 2030 },
+      { time: 'Today, 19:00', sb: 310, mh: 330, kr: 290, mg: 305, wf: 320, ec: 315, total: 1870 },
+      { time: 'Yesterday, 08:00', sb: 275, mh: 295, kr: 245, mg: 265, wf: 285, ec: 270, total: 1635 },
+      { time: 'Yesterday, 18:00', sb: 345, mh: 365, kr: 305, mg: 320, wf: 335, ec: 330, total: 2000 },
+      { time: 'Nov 14, 08:00', sb: 270, mh: 290, kr: 240, mg: 260, wf: 280, ec: 265, total: 1605 },
+      { time: 'Nov 14, 18:00', sb: 340, mh: 360, kr: 300, mg: 315, wf: 330, ec: 325, total: 1970 }
     ];
     return data;
   }

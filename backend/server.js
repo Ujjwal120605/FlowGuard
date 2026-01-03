@@ -60,7 +60,7 @@ const Vehicle = mongoose.model('Vehicle', VehicleSchema);
 // --- Routes ---
 
 // 1. Register Vehicle
-app.post('/vehicles/register', async (req, res) => {
+app.post('/api/vehicles/register', async (req, res) => {
     try {
         const existing = await Vehicle.findOne({ vehicleNumber: req.body.vehicleNumber });
         if (existing) return res.status(400).json({ detail: 'Vehicle already registered' });
@@ -74,7 +74,7 @@ app.post('/vehicles/register', async (req, res) => {
 });
 
 // 2. Get All Vehicles
-app.get('/vehicles', async (req, res) => {
+app.get('/api/vehicles', async (req, res) => {
     try {
         const vehicles = await Vehicle.find().sort({ registeredOn: -1 });
         res.json(vehicles);
@@ -84,7 +84,7 @@ app.get('/vehicles', async (req, res) => {
 });
 
 // 3. Get Single Vehicle
-app.get('/vehicles/:vehicleNumber', async (req, res) => {
+app.get('/api/vehicles/:vehicleNumber', async (req, res) => {
     try {
         const vehicle = await Vehicle.findOne({ vehicleNumber: req.params.vehicleNumber });
         if (!vehicle) return res.status(404).json({ detail: 'Vehicle not found' });
@@ -95,7 +95,7 @@ app.get('/vehicles/:vehicleNumber', async (req, res) => {
 });
 
 // 4. Update Status (Missing/Found)
-app.put('/vehicles/:vehicleNumber/status', async (req, res) => {
+app.put('/api/vehicles/:vehicleNumber/status', async (req, res) => {
     try {
         const { status, is_missing } = req.query;
         const updateData = { status, isMissing: is_missing };
@@ -115,7 +115,7 @@ app.put('/vehicles/:vehicleNumber/status', async (req, res) => {
 });
 
 // 5. Issue Fine
-app.post('/vehicles/:vehicleNumber/fine', async (req, res) => {
+app.post('/api/vehicles/:vehicleNumber/fine', async (req, res) => {
     try {
         const vehicle = await Vehicle.findOne({ vehicleNumber: req.params.vehicleNumber });
         if (!vehicle) return res.status(404).json({ detail: 'Vehicle not found' });
@@ -131,7 +131,7 @@ app.post('/vehicles/:vehicleNumber/fine', async (req, res) => {
 // --- Proxy Routes to AI Service ---
 
 // 6. Traffic Prediction Proxy
-app.post('/predict/traffic', async (req, res) => {
+app.post('/api/predict/traffic', async (req, res) => {
     try {
         const response = await axios.post(`${AI_SERVICE_URL}/predict/traffic`, req.body);
         res.json(response.data);
@@ -142,7 +142,7 @@ app.post('/predict/traffic', async (req, res) => {
 });
 
 // 7. License Plate Detection Proxy
-app.post('/detect/plate', upload.single('file'), async (req, res) => {
+app.post('/api/detect/plate', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ detail: 'No file uploaded' });
@@ -171,6 +171,13 @@ app.post('/detect/plate', upload.single('file'), async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Node.js Backend running on port ${PORT}`);
-});
+
+// Only listen if run directly (not required for Vercel, but good for local dev)
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`🚀 Node.js Backend running on port ${PORT}`);
+    });
+}
+
+module.exports = app;
+

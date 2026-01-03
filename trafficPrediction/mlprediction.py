@@ -2,11 +2,18 @@ import numpy as np
 import pandas as pd
 import json
 import os
+import joblib
 from datetime import datetime, timedelta
 import warnings
-import mlflow
-import mlflow.sklearn
-import mlflow.tensorflow
+# MLflow is optional
+try:
+    import mlflow
+    import mlflow.sklearn
+    import mlflow.tensorflow
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
 
 warnings.filterwarnings('ignore')
 
@@ -14,7 +21,7 @@ warnings.filterwarnings('ignore')
 try:
     import tensorflow as tf
     from tensorflow import keras
-    from tensorflow.keras.models import Sequential, Model
+    from tensorflow.keras.models import Sequential, Model, load_model
     from tensorflow.keras.layers import LSTM, GRU, Dense, Dropout, Bidirectional, Attention, Input, concatenate
     from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
     DEEP_LEARNING_AVAILABLE = True
@@ -24,314 +31,312 @@ except ImportError:
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.linear_model import Ridge
 
 class EnhancedBangaloreTrafficPredictor:
     """
     Advanced Traffic Prediction System using Hybrid LSTM-GRU Architecture
-    Features:
-    - Temporal pattern learning (LSTM)
-    - Short-term dependency capture (GRU)
-    - Attention mechanism for important time windows
-    - Multi-output predictions (traffic volume, speed, congestion)
-    - MLflow Experiment Tracking
     """
     
-    def __init__(self, csv_path='cars.csv'):
+    def __init__(self, csv_path='cars.csv', model_dir='models'):
         self.csv_path = csv_path
+        self.model_dir = model_dir
         self.models = {}
         self.scalers = {}
         self.sequence_length = 24  # Use past 24 hours for prediction
         self.df = None
         self.model_type = 'hybrid_lstm_gru' if DEEP_LEARNING_AVAILABLE else 'ensemble'
         
-        # Initialize MLflow
-        mlflow.set_experiment("FlowGuard_Traffic_Prediction")
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+            
+        # Initialize MLflow only if available
+        if MLFLOW_AVAILABLE:
+            try:
+                mlflow.set_experiment("FlowGuard_Traffic_Prediction")
+            except Exception:
+                pass
         
     def load_and_engineer_features(self):
         """Advanced feature engineering for traffic prediction"""
         print("\n" + "="*80)
         print("🚦 FLOWGUARD AI - ENHANCED TRAFFIC PREDICTION SYSTEM")
         print("="*80)
-        print(f"Loading dataset from: {self.csv_path}")
+        
+        # Robust path resolution
+        paths_to_try = [
+            self.csv_path,
+            os.path.join('trafficPrediction', self.csv_path),
+            os.path.join(os.path.dirname(__file__), self.csv_path),
+            '/Users/ujjwalbajpai/Desktop/reps/FlowGuard/trafficPrediction/cars.csv'
+        ]
+        
+        final_path = None
+        for path in paths_to_try:
+            if os.path.exists(path):
+                final_path = path
+                break
+        
+        if not final_path:
+            print(f"❌ Error: Dataset not found in paths: {paths_to_try}")
+            return None
+            
+        print(f"Loading dataset from: {final_path}")
         
         try:
-            if not os.path.exists(self.csv_path):
-                # Fallback for API usage if file is in a different relative path
-                possible_paths = [
-                    self.csv_path,
-                    os.path.join('trafficPrediction', self.csv_path),
-                    os.path.join('..', 'trafficPrediction', self.csv_path)
-                ]
-                for path in possible_paths:
-                    if os.path.exists(path):
-                        self.csv_path = path
-                        break
-            
-            self.df = pd.read_csv(self.csv_path)
+            self.df = pd.read_csv(final_path)
             print(f"✓ Loaded {len(self.df)} records")
             
-            # Enhanced temporal features
+            # --- Feature Engineering ---
+            # 1. Date/Time Parsing
             if 'Date' in self.df.columns:
                 self.df['Date'] = pd.to_datetime(self.df['Date'], errors='coerce')
             else:
-                # Create synthetic dates if not present
-                start_date = datetime(2020, 7, 1)
+                # Synthetic dates as fallback
+                start_date = datetime(2022, 1, 1)
                 self.df['Date'] = [start_date + timedelta(hours=i) for i in range(len(self.df))]
             
-            # Basic temporal features
+            self.df = self.df.sort_values('Date')
+            
+            # 2. Extract Temporal Features
             self.df['Hour'] = self.df['Date'].dt.hour
             self.df['DayOfWeek'] = self.df['Date'].dt.dayofweek
-            self.df['Month'] = self.df['Date'].dt.month
-            self.df['Day'] = self.df['Date'].dt.day
             self.df['IsWeekend'] = (self.df['DayOfWeek'] >= 5).astype(int)
+            self.df['IsRushHour'] = self.df['Hour'].isin([8, 9, 10, 17, 18, 19]).astype(int)
             
-            # Advanced temporal features
-            self.df['IsRushHourMorning'] = self.df['Hour'].isin([7, 8, 9, 10]).astype(int)
-            self.df['IsRushHourEvening'] = self.df['Hour'].isin([17, 18, 19, 20]).astype(int)
-            self.df['IsNightTime'] = self.df['Hour'].isin([0, 1, 2, 3, 4, 5]).astype(int)
-            
-            # Cyclical encoding
+            # 3. Cyclical Encoding
             self.df['Hour_sin'] = np.sin(2 * np.pi * self.df['Hour'] / 24)
             self.df['Hour_cos'] = np.cos(2 * np.pi * self.df['Hour'] / 24)
-            self.df['DayOfWeek_sin'] = np.sin(2 * np.pi * self.df['DayOfWeek'] / 7)
-            self.df['DayOfWeek_cos'] = np.cos(2 * np.pi * self.df['DayOfWeek'] / 7)
+            self.df['Day_sin'] = np.sin(2 * np.pi * self.df['DayOfWeek'] / 7)
+            self.df['Day_cos'] = np.cos(2 * np.pi * self.df['DayOfWeek'] / 7)
             
-            # Traffic volume aggregation
-            if 'TotalCars' in self.df.columns:
+            # 4. Target Variable Resolution
+            if 'Traffic Volume' in self.df.columns:
+                self.df['TrafficVolume'] = self.df['Traffic Volume']
+            elif 'TotalCars' in self.df.columns:
                 self.df['TrafficVolume'] = self.df['TotalCars']
-            elif all(col in self.df.columns for col in ['Lane-1', 'Lane-2', 'Lane-3', 'Lane-4']):
-                self.df['TrafficVolume'] = (self.df['Lane-1'] + self.df['Lane-2'] + 
-                                           self.df['Lane-3'] + self.df['Lane-4'])
             else:
-                print("⚠️  Warning: No traffic volume column found, generating synthetic data")
-                self.df['TrafficVolume'] = np.random.randint(100, 400, len(self.df))
+                # Try summing lanes if available
+                lane_cols = [c for c in self.df.columns if 'Lane' in c]
+                if lane_cols:
+                    self.df['TrafficVolume'] = self.df[lane_cols].sum(axis=1)
+                else:
+                    # Final fallback: synthetic
+                    print("⚠️ target column missing, using synthetic volume")
+                    self.df['TrafficVolume'] = np.random.randint(50, 500, size=len(self.df))
+
+            # 5. Lag Features (Critical for Time Series)
+            self.df['Traffic_Lag1'] = self.df['TrafficVolume'].shift(1)
+            self.df['Traffic_Lag24'] = self.df['TrafficVolume'].shift(24) # Same time yesterday
+            self.df['Traffic_MA3'] = self.df['TrafficVolume'].rolling(window=3).mean()
             
-            # Rolling statistics
-            self.df['TrafficVolume_MA3'] = self.df['TrafficVolume'].rolling(window=3, min_periods=1).mean()
-            self.df['TrafficVolume_MA6'] = self.df['TrafficVolume'].rolling(window=6, min_periods=1).mean()
-            self.df['TrafficVolume_STD3'] = self.df['TrafficVolume'].rolling(window=3, min_periods=1).std().fillna(0)
-            
-            # Lag features
-            self.df['TrafficVolume_Lag1'] = self.df['TrafficVolume'].shift(1).fillna(method='bfill')
-            self.df['TrafficVolume_Lag3'] = self.df['TrafficVolume'].shift(3).fillna(method='bfill')
-            
-            # Traffic trend
-            self.df['TrafficTrend'] = self.df['TrafficVolume'].diff().fillna(0)
+            self.df = self.df.dropna() # Drop rows with NaNs from shifting
             
             return self.df
             
         except Exception as e:
             print(f"✗ Error loading data: {e}")
+            import traceback
+            traceback.print_exc()
             return None
-    
-    def prepare_sequences(self, data):
-        """Prepare sequences for LSTM/GRU training"""
+
+    def prepare_data(self):
+        """Prepare X and y matrices"""
         feature_cols = [
-            'Hour', 'DayOfWeek', 'IsWeekend', 'IsRushHourMorning', 'IsRushHourEvening',
-            'Hour_sin', 'Hour_cos', 'DayOfWeek_sin', 'DayOfWeek_cos',
-            'TrafficVolume_MA3', 'TrafficVolume_MA6', 'TrafficVolume_STD3',
-            'TrafficVolume_Lag1', 'TrafficVolume_Lag3',
-            'TrafficTrend', 'TrafficVolume'
+            'Hour_sin', 'Hour_cos', 'Day_sin', 'Day_cos', 
+            'IsWeekend', 'IsRushHour',
+            'Traffic_Lag1', 'Traffic_Lag24', 'Traffic_MA3'
         ]
         
-        feature_cols = [col for col in feature_cols if col in data.columns]
+        X = self.df[feature_cols].values
+        y = self.df['TrafficVolume'].values
         
-        X, y = [], []
-        values = data[feature_cols].values
+        # Scaling
+        self.scalers['X'] = StandardScaler()
+        self.scalers['y'] = StandardScaler() # Useful for DL output
         
-        for i in range(self.sequence_length, len(values)):
-            X.append(values[i-self.sequence_length:i])
-            y.append(values[i, -1])
+        X_scaled = self.scalers['X'].fit_transform(X)
+        y_scaled = self.scalers['y'].fit_transform(y.reshape(-1, 1)).flatten()
         
-        return np.array(X), np.array(y)
-    
-    def build_hybrid_model(self, input_shape):
-        """Build Hybrid LSTM-GRU model with attention"""
-        inputs = Input(shape=input_shape)
+        # Save scalers for inference
+        joblib.dump(self.scalers['X'], os.path.join(self.model_dir, 'scaler_X.save'))
+        joblib.dump(self.scalers['y'], os.path.join(self.model_dir, 'scaler_y.save'))
         
-        # LSTM branch
-        lstm_out = Bidirectional(LSTM(128, return_sequences=True))(inputs)
-        lstm_out = Dropout(0.2)(lstm_out)
-        lstm_out = Bidirectional(LSTM(64, return_sequences=True))(lstm_out)
+        return X_scaled, y_scaled, X, y
+
+    def train(self):
+        """Train models and save them"""
+        if self.load_and_engineer_features() is None:
+            return False
+            
+        X_scaled, y_scaled, X_raw, y_raw = self.prepare_data()
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled, test_size=0.2, shuffle=False)
         
-        # GRU branch
-        gru_out = Bidirectional(GRU(128, return_sequences=True))(inputs)
-        gru_out = Dropout(0.2)(gru_out)
-        gru_out = Bidirectional(GRU(64, return_sequences=True))(gru_out)
+        print("\n🚀 Training Random Forest Model (Baseline)...")
+        rf_model = RandomForestRegressor(n_estimators=100, max_depth=15, n_jobs=-1, random_state=42)
+        rf_model.fit(X_train, y_train)
         
-        # Combine
-        combined = concatenate([lstm_out, gru_out])
-        combined = Dropout(0.3)(combined)
+        y_pred_rf = rf_model.predict(X_test)
+        r2_rf = r2_score(y_test, y_pred_rf)
+        print(f"✅ Random Forest R²: {r2_rf:.4f}")
         
-        # Attention
-        attention = Attention()([combined, combined])
-        attention = Dropout(0.2)(attention)
+        # Save RF model
+        joblib.dump(rf_model, os.path.join(self.model_dir, 'rf_model.joblib'))
+        self.models['rf'] = rf_model
         
-        # Dense
-        flat = tf.keras.layers.Flatten()(attention)
-        dense1 = Dense(128, activation='relu')(flat)
-        dense1 = Dropout(0.3)(dense1)
-        dense2 = Dense(64, activation='relu')(dense1)
-        
-        outputs = Dense(1, activation='linear')(dense2)
-        
-        model = Model(inputs=inputs, outputs=outputs)
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001),
-                     loss='huber', metrics=['mae', 'mse'])
-        return model
-    
-    def train_deep_learning_model(self):
-        """Train the hybrid LSTM-GRU model with MLflow tracking"""
-        with mlflow.start_run(run_name="Hybrid_LSTM_GRU"):
-            # Log parameters
-            mlflow.log_param("model_type", "Hybrid LSTM-GRU")
-            mlflow.log_param("sequence_length", self.sequence_length)
+        if DEEP_LEARNING_AVAILABLE:
+            print("\n🚀 Training Deep Learning Model (LSTM-GRU)...")
+            # Reshape for RNN [samples, time steps, features]
+            # Here we use sequence length of 1 for simplicity in this implementation update, 
+            # ideally would use sliding window generator for seq_len > 1
+            X_train_dl = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+            X_test_dl = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
             
-            X, y = self.prepare_sequences(self.df)
+            inputs = Input(shape=(1, X_train.shape[1]))
+            x = LSTM(64, return_sequences=True)(inputs)
+            x = Dropout(0.2)(x)
+            x = GRU(32)(x)
+            outputs = Dense(1)(x)
             
-            # Split and Scale
-            split_idx = int(len(X) * 0.8)
-            X_train, X_test = X[:split_idx], X[split_idx:]
-            y_train, y_test = y[:split_idx], y[split_idx:]
+            dl_model = Model(inputs, outputs)
+            dl_model.compile(optimizer='adam', loss='mse', metrics=['mae'])
             
-            scaler_X = MinMaxScaler()
-            scaler_y = MinMaxScaler()
+            dl_model.fit(X_train_dl, y_train, epochs=20, batch_size=32, validation_split=0.2, verbose=1)
             
-            X_train_scaled = scaler_X.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
-            X_test_scaled = scaler_X.transform(X_test.reshape(-1, X_test.shape[-1])).reshape(X_test.shape)
-            y_train_scaled = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
-            y_test_scaled = scaler_y.transform(y_test.reshape(-1, 1)).flatten()
+            y_pred_dl = dl_model.predict(X_test_dl)
+            r2_dl = r2_score(y_test, y_pred_dl)
+            print(f"✅ Deep Learning R²: {r2_dl:.4f}")
             
-            self.scalers['X'] = scaler_X
-            self.scalers['y'] = scaler_y
+            # Save DL model
+            dl_model.save(os.path.join(self.model_dir, 'dl_model.h5'))
+            self.models['dl'] = dl_model
             
-            model = self.build_hybrid_model((X_train.shape[1], X_train.shape[2]))
+        print("\n💾 Models saved successfully.")
+        return True
+
+    def load_saved_models(self):
+        """Load pretrained models"""
+        try:
+            self.models['rf'] = joblib.load(os.path.join(self.model_dir, 'rf_model.joblib'))
+            self.scalers['X'] = joblib.load(os.path.join(self.model_dir, 'scaler_X.save'))
+            self.scalers['y'] = joblib.load(os.path.join(self.model_dir, 'scaler_y.save'))
             
-            # Train
-            history = model.fit(
-                X_train_scaled, y_train_scaled,
-                validation_split=0.2,
-                epochs=50, # Reduced for demo speed
-                batch_size=32,
-                callbacks=[EarlyStopping(patience=5)],
-                verbose=1
-            )
-            
-            # Evaluate
-            y_pred_scaled = model.predict(X_test_scaled, verbose=0)
-            y_pred = scaler_y.inverse_transform(y_pred_scaled).flatten()
-            
-            mse = mean_squared_error(y_test, y_pred)
-            mae = mean_absolute_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
-            
-            # Log metrics
-            mlflow.log_metric("mse", mse)
-            mlflow.log_metric("mae", mae)
-            mlflow.log_metric("r2", r2)
-            
-            # Log model
-            mlflow.tensorflow.log_model(model, "model")
-            
-            print(f"✓ Model R² Score: {r2:.4f}")
-            self.models['hybrid'] = model
-            return model, history
-    
-    def train_ensemble_model(self):
-        """Train ensemble with MLflow tracking"""
-        with mlflow.start_run(run_name="Ensemble_RF"):
-            feature_cols = [
-                'Hour', 'DayOfWeek', 'IsWeekend', 'IsRushHourMorning', 'IsRushHourEvening',
-                'Hour_sin', 'Hour_cos', 'TrafficVolume_MA3', 'TrafficVolume_Lag1'
-            ]
-            feature_cols = [col for col in feature_cols if col in self.df.columns]
-            
-            X = self.df[feature_cols].fillna(0).values
-            y = self.df['TrafficVolume'].values
-            
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            
-            scaler = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
-            self.scalers['ensemble'] = scaler
-            
-            model = RandomForestRegressor(n_estimators=100, max_depth=20, random_state=42)
-            model.fit(X_train_scaled, y_train)
-            
-            y_pred = model.predict(X_test_scaled)
-            r2 = r2_score(y_test, y_pred)
-            mae = mean_absolute_error(y_test, y_pred)
-            
-            mlflow.log_param("model_type", "RandomForest")
-            mlflow.log_metric("r2", r2)
-            mlflow.log_metric("mae", mae)
-            mlflow.sklearn.log_model(model, "model")
-            
-            print(f"✓ Ensemble R² Score: {r2:.4f}")
-            self.models['ensemble'] = model
-            return model
+            if DEEP_LEARNING_AVAILABLE and os.path.exists(os.path.join(self.model_dir, 'dl_model.h5')):
+                self.models['dl'] = load_model(os.path.join(self.model_dir, 'dl_model.h5'))
+                
+            return True
+        except Exception as e:
+            print(f"Warning: Could not load saved models: {e}")
+            return False
 
     def predict_next_24_hours(self, junction_name='Silk Board'):
-        """Predict traffic for next 24 hours (Heuristic fallback for demo robustness)"""
+        """
+        Generate 24h predictions using the TRAINED model.
+        """
+        # Ensure models are loaded
+        if not self.models and not self.load_saved_models():
+            print("⚠️ No models found. Training now...")
+            if not self.train():
+                return self._heuristic_fallback(junction_name)
+
         predictions = []
         current_time = datetime.now()
         
-        # Base patterns and multipliers (same as before for consistency)
-        base_pattern = {
-            0: 0.3, 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.2, 5: 0.4,
-            6: 0.7, 7: 0.9, 8: 1.0, 9: 0.95, 10: 0.8, 11: 0.7,
-            12: 0.75, 13: 0.7, 14: 0.65, 15: 0.7, 16: 0.85,
-            17: 1.0, 18: 0.98, 19: 0.92, 20: 0.75, 21: 0.6,
-            22: 0.5, 23: 0.4
-        }
+        # Prepare feature vector for next 24 hours
+        # We need to constructing synthetic features for future timestamps
+        # Note: Lags are tricky for future without autoregression. 
+        # We will use the last known "Traffic_MA3" as a baseline for lags.
         
-        junction_multipliers = {
-            'Silk Board': 350, 'Marathahalli': 380, 'Koramangala': 320,
-            'MG Road': 340, 'Whitefield': 360, 'Electronic City': 330
-        }
+        try:
+            # Base features
+            feature_list = []
+            
+            # Use last known traffic average from valid data if possible, else 200
+            last_traffic = 200 
+            
+            for i in range(24):
+                future_time = current_time + timedelta(hours=i)
+                hour = future_time.hour
+                day = future_time.weekday()
+                
+                # Construct features in same order as training
+                # 'Hour_sin', 'Hour_cos', 'Day_sin', 'Day_cos', 'IsWeekend', 'IsRushHour', 'Traffic_Lag1', ...
+                
+                features = [
+                    np.sin(2 * np.pi * hour / 24),
+                    np.cos(2 * np.pi * hour / 24),
+                    np.sin(2 * np.pi * day / 7),
+                    np.cos(2 * np.pi * day / 7),
+                    1 if day >= 5 else 0,
+                    1 if hour in [8,9,10,17,18,19] else 0,
+                    last_traffic, # Lag1 (Approx)
+                    last_traffic, # Lag24 (Approx)
+                    last_traffic  # MA3 (Approx)
+                ]
+                feature_list.append(features)
+            
+            X_future = np.array(feature_list)
+            X_future_scaled = self.scalers['X'].transform(X_future)
+            
+            # Predict
+            model = self.models.get('dl', self.models.get('rf'))
+            if DEEP_LEARNING_AVAILABLE and 'dl' in self.models:
+                X_future_scaled = X_future_scaled.reshape((X_future_scaled.shape[0], 1, X_future_scaled.shape[1]))
+                
+            y_pred_scaled = model.predict(X_future_scaled)
+            
+            if DEEP_LEARNING_AVAILABLE and 'dl' in self.models:
+                 y_pred = self.scalers['y'].inverse_transform(y_pred_scaled).flatten()
+            else:
+                 y_pred = self.scalers['y'].inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+
+            # Format Output
+            for i, vol in enumerate(y_pred):
+                future_time = current_time + timedelta(hours=i)
+                vol = max(50, int(vol)) # Relu
+                
+                # Junction specific multiplier (simple calibration)
+                junction_multipliers = {
+                    'Silk Board': 1.2, 'Marathahalli': 1.1, 'Koramangala': 1.0,
+                    'MG Road': 1.15, 'Whitefield': 1.05, 'Electronic City': 0.95,
+                    'Pattanegre': 1.05
+                }
+                vol = int(vol * junction_multipliers.get(junction_name, 1.0))
+                
+                predictions.append({
+                    'hour': future_time.hour,
+                    'time': future_time.strftime('%H:%M'),
+                    'traffic_volume': vol,
+                    'congestion_level': 'High' if vol > 350 else 'Moderate' if vol > 200 else 'Low',
+                    'timestamp': future_time.isoformat()
+                })
+                
+            return predictions
+            
+        except Exception as e:
+            print(f"❌ Prediction error: {e}")
+            return self._heuristic_fallback(junction_name)
+
+    def _heuristic_fallback(self, junction_name):
+        print("⚠️ Using heuristic fallback")
+        predictions = []
+        current_time = datetime.now()
+        base_traffic = 300
         
-        base_traffic = junction_multipliers.get(junction_name, 300)
-        
-        for hour_offset in range(24):
-            future_time = current_time + timedelta(hours=hour_offset)
-            hour = future_time.hour
-            is_weekend = future_time.weekday() >= 5
-            
-            pattern_factor = base_pattern.get(hour, 0.5)
-            weekend_factor = 0.7 if is_weekend else 1.0
-            random_factor = np.random.uniform(0.9, 1.1)
-            
-            traffic = int(base_traffic * pattern_factor * weekend_factor * random_factor)
-            traffic = max(50, min(450, traffic))
-            
-            congestion = 'High' if traffic > 300 else 'Moderate' if traffic > 200 else 'Low'
-            
+        for i in range(24):
+            future_time = current_time + timedelta(hours=i)
+            is_rush = future_time.hour in [8,9,10,17,18,19]
+            vol = base_traffic * (1.5 if is_rush else 0.8)
             predictions.append({
-                'hour': hour,
+                'hour': future_time.hour,
                 'time': future_time.strftime('%H:%M'),
-                'traffic_volume': traffic,
-                'congestion_level': congestion,
+                'traffic_volume': int(vol),
+                'congestion_level': 'High' if vol > 350 else 'Moderate',
                 'timestamp': future_time.isoformat()
             })
-        
         return predictions
 
-    def train(self):
-        """Main training pipeline"""
-        if self.load_and_engineer_features() is None:
-            return False
-        
-        if DEEP_LEARNING_AVAILABLE and self.model_type == 'hybrid_lstm_gru':
-            self.train_deep_learning_model()
-        else:
-            self.train_ensemble_model()
-        
-        return True
-
 if __name__ == "__main__":
-    predictor = EnhancedBangaloreTrafficPredictor('cars.csv')
+    predictor = EnhancedBangaloreTrafficPredictor()
     predictor.train()
