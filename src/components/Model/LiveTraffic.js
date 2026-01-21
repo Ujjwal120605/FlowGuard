@@ -1,4 +1,4 @@
-import React, { Component, Fragment } from 'react';
+import React, { Component } from 'react';
 import GoogleMapReact from 'google-map-react';
 
 // Simple Car Marker Component - optimized for performance

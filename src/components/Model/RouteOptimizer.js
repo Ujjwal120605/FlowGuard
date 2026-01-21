@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
 import GoogleMapReact from 'google-map-react';
 import { metroLines } from './metroData';
-import { Button, Card, Select, Spin, Alert, Divider, message, Progress, Tag, Tooltip } from 'antd';
+import { Button, Card, Select, Spin, Alert, Divider, message, Progress, Tag } from 'antd';
 import {
   SearchOutlined, SwapOutlined, ClockCircleOutlined, CarOutlined,
-  InfoCircleOutlined, ThunderboltOutlined, FireOutlined,
+  InfoCircleOutlined, ThunderboltOutlined,
   CheckCircleOutlined, WarningOutlined, RobotOutlined, RocketOutlined
 } from '@ant-design/icons';
 

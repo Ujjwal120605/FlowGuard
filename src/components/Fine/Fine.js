@@ -256,7 +256,7 @@ export default class Fine extends React.Component {
       isVerified,
       fineAmount,
       fineReason,
-      fineSent,
+
       emailSending,
       emailError,
       emailSuccess,
