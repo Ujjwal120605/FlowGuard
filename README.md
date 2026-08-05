@@ -29,619 +29,217 @@ FlowGuard AI is a next-generation **intelligent traffic management system** desi
 
 Bangalore faces some of India's worst traffic congestion, costing millions of hours in productivity and increasing pollution. FlowGuard AI addresses this by:
 
-- 🎯 **Predicting traffic** up to 24 hours in advance
-- ⚡ **Optimizing traffic signals** dynamically based on real-time density
-- 🚗 **Visualizing live traffic** with animated car markers
-- 📊 **Analyzing patterns** to identify congestion hotspots
-- 🚨 **Managing violations** with automated fine processing
+- 🎯 **Predicting traffic** up to 24 hours in advance.
+- ⚡ **Optimizing traffic signals** dynamically based on real-time density.
+- 🚗 **Visualizing live traffic** with animated car markers.
+- 📊 **Analyzing patterns** to identify congestion hotspots.
+- 🚨 **Managing violations** with automated fine processing.
+- 🏥 **Green Corridors** to prioritize emergency vehicles (ambulances) in real-time.
 
 ---
 
-## ✨ Key Features
+## 🏗️ Project Architecture
 
-<div align="center">
-
-### 🗺️ **Live Traffic Monitor**
-Real-time surveillance across 6 major Bangalore junctions with ML-powered predictions
-
-### 🤖 **Machine Learning Engine**
-Multiple Linear Regression model trained on Bangalore traffic patterns
-
-### 🚗 **Smart Vehicle Registry**
-Complete vehicle registration & tracking with number plate intelligence
-
-### 📊 **Analytics Dashboard**
-Deep insights into traffic patterns, congestion levels, and performance metrics
-
-### 🚨 **Violation Management**
-Automated detection and fine processing for traffic violations
-
-### 🏥 **Emergency Corridors**
-Green corridor creation for ambulances and emergency vehicles
-
-</div>
-
----
-
-## 🎯 Core Features Breakdown
-
-### 1️⃣ **Live Traffic Monitoring System**
-
-Watch Bangalore's traffic come alive on an interactive map!
-
-**Features:**
-- ✅ **Real-time vehicle visualization** - Animated car markers showing live positions
-- ✅ **6 Major Junctions Covered:**
-  - 🔴 Silk Board Junction (Hosur Road & Outer Ring Road)
-  - 🟠 Marathahalli Junction (IT Corridor Hub)
-  - 🟡 Koramangala Junction (80 Feet Road)
-  - 🟢 MG Road Junction (City Center)
-  - 🔵 Whitefield Junction (ITPL Main Road)
-  - 🟣 Electronic City Junction (Hosur Road IT Hub)
-- ✅ **Dynamic Car Markers** - 1 marker per 5 vehicles (up to 30 visible per junction)
-- ✅ **Color-Coded Traffic Lights** - Green/Yellow/Red based on ML predictions
-- ✅ **Live Traffic Density** - Updated every 3 seconds
-
-**How It Works:**
-```
-Traffic Data → ML Model → Predictions → Dynamic Signal Timing → Visual Display
-```
-
-<!-- SCREENSHOT: Live Traffic Monitor -->
-
----
-
-### 2️⃣ **Machine Learning Traffic Predictions**
-
-Our intelligent prediction engine uses advanced algorithms to forecast traffic patterns.
-
-**Model Specifications:**
-- 🧠 **Algorithm:** Multiple Linear Regression
-- 📊 **Dataset:** Bangalore Pulse Traffic Dataset
-- 🎯 **Accuracy:** 87.3% on test data
-- ⏱️ **Prediction Horizon:** 24 hours ahead
-- 🔄 **Update Frequency:** Every 5 minutes
-
-**Prediction Factors:**
-```javascript
-✓ Time of day (Rush hour detection)
-✓ Day of week (Weekday vs Weekend patterns)
-✓ Historical traffic volume
-✓ Junction-specific multipliers
-✓ Weather conditions (Optional)
-✓ Special events (Festivals, matches, etc.)
-```
-
-**Real-time Insights:**
-- 📈 Current traffic volume
-- 🔮 24-hour traffic forecast
-- 🚦 Congestion level (Low/Moderate/High)
-- 📉 Traffic trends (Increasing/Stable/Decreasing)
-- ⏰ Peak hour identification
-- 🎯 Average 24h traffic volume
-
-<!-- SCREENSHOT: ML Predictions Panel -->
-
----
-
-### 3️⃣ **Intelligent Vehicle Registration System**
-
-Complete vehicle lifecycle management with smart number plate recognition.
-
-**Registration Capabilities:**
-
-**Owner Information:**
-- 👤 Name, Phone, Email, Address
-- 🆔 Aadhar/ID verification
-- 📍 Permanent & communication address
-
-**Vehicle Details:**
-- 🚗 Type (Two-wheeler, Four-wheeler, Commercial, Heavy)
-- 🏷️ Make, Model, Year, Color
-- 🔢 Engine & Chassis numbers
-- 📋 Registration number
-
-**Number Plate Intelligence:**
-
-Our system can parse and extract information from vehicle registration numbers:
+FlowGuard AI is built as a distributed, service-oriented system comprising a single-page React frontend, a Node.js Express coordination layer, and a Python FastAPI ML microservice.
 
 ```
-Format: KA-01-AB-1234
-
-KA    → State (Karnataka)
-01    → RTO Code (Bangalore Central)
-AB    → Series
-1234  → Unique Number
+       ┌───────────────────────────────────────────────────┐
+       │                 React Frontend                    │
+       │                   (Port 3000)                     │
+       └────────────────────────┬──────────────────────────┘
+                                │
+                        /api/* (Proxied)
+                                │
+                                ▼
+       ┌───────────────────────────────────────────────────┐
+       │             Node.js Express Backend               │
+       │                   (Port 8000)                     │
+       └───────────────┬─────────────────────────┬─────────┘
+                       │                         │
+            MongoDB Queries                      │ Proxy requests
+                       │                         │
+                       ▼                         ▼
+  ┌─────────────────────────┐       ┌──────────────────────────┐
+  │      MongoDB Server     │       │   Python FastAPI Server  │
+  │ (Atlas or In-Memory Dev)│       │        (Port 8001)       │
+  └─────────────────────────┘       └────────────┬─────────────┘
+                                                 │
+                                     ┌───────────┴───────────┐
+                                     ▼                       ▼
+                            ┌─────────────────┐     ┌─────────────────┐
+                            │    Traffic AI   │     │    YOLO + OCR   │
+                            │   (RandomForest)│     │   (Plate Recog) │
+                            └─────────────────┘     └─────────────────┘
 ```
 
-**Smart Lookups:**
-- 🔍 Search by registration number
-- 📜 View complete vehicle history
-- 💰 Check outstanding fines
-- 📄 Insurance & PUC verification
-- 🚫 Violation history
-
-<!-- SCREENSHOT: Vehicle Registration Form -->
+1. **Frontend (React 18)**: Offers the interactive UI, dynamic SVG maps with animated vehicle routes, analytics panels, and dashboard configurations.
+2. **Node.js Express Orchestrator**: Handles user authentication, vehicle CRUD, violation persistence, and acts as a security and rate-limiting proxy to the FastAPI backend.
+3. **Python FastAPI Backend**: Hosts the memory-intensive ML tasks. It executes Random Forest predictions and processes computer vision tasks (YOLOv8 + EasyOCR) for reading license plates.
 
 ---
 
-### 4️⃣ **Analytics & Statistics Dashboard**
+## ✨ Features Breakdown
 
-Comprehensive traffic analytics with stunning visualizations.
+### 1. Live Traffic Monitor & Map
+* Watch Bangalore's traffic come alive on an interactive dashboard with custom color-coded traffic lights and density indicators.
+* Coverage includes 6 major Bangalore junctions:
+  * **Silk Board Junction** (Hosur Road & Outer Ring Road)
+  * **Marathahalli Junction** (IT Corridor Hub)
+  * **Koramangala Junction** (80 Feet Road)
+  * **MG Road Junction** (City Center)
+  * **Whitefield Junction** (ITPL Main Road)
+  * **Electronic City Junction** (Hosur Road IT Hub)
+* Animated car markers match live junction calculations (1 marker represents 5 vehicles).
 
-**Available Metrics:**
+### 2. Machine Learning Predictions
+* Utilizes a Random Forest model trained on the Bangalore Pulse Traffic Dataset.
+* Predicts traffic volumes up to 24 hours ahead, updating every 5 minutes based on historical volume, peak hour tags, rush hour indicators, and day-of-week variables.
+* Yields an average $R^2$ accuracy score of ~87%.
 
-**Real-time Statistics:**
-```
-📊 Total Vehicles Across All Junctions
-⏱️ Average Wait Time Per Signal
-🚦 Current Signal Status
-📈 Live Congestion Levels
-🎯 Junction-wise Comparison
-```
+### 3. Smart Vehicle Registry & Plate Recognition
+* Registers vehicle types (two-wheeler, four-wheeler, commercial, heavy), chassis/engine numbers, registration numbers, owner information, and current violation state.
+* Utilizes **YOLOv8** to locate vehicles and license plates in uploaded photos, followed by **EasyOCR** processing (with adaptive thresholding and denoising) to read the alphanumeric code.
 
-**Historical Analysis:**
-- 📅 Daily traffic patterns
-- 📆 Weekly trend analysis
-- 📊 Monthly comparisons
-- 📈 Year-over-year growth
-- 🕐 Peak hour identification
+### 4. Emergency Green Corridor (Ambulance Tracking)
+* Allows city operators to track emergency vehicles on a live route map.
+* Dynamically overrides junction traffic signals ahead of the ambulance to generate a "Green Corridor", reducing response times by up to 50%.
 
-**Predictive Insights:**
-- 🔮 Next hour traffic forecast
-- ⚠️ Congestion alerts
-- 🛣️ Recommended alternate routes
-- 📍 Traffic hotspot identification
-
-**Performance Metrics:**
-- ⚡ Traffic light efficiency
-- ⏳ Average wait times reduced
-- 🎯 Flow optimization score
-- ✅ System uptime statistics
-
-<!-- SCREENSHOT: Analytics Dashboard -->
+### 5. Automated Violation Management
+* Processes fines for offences like red-light jumps, wrong-way driving, over-speeding, and parking violations.
+* Links violations to specific vehicle registration plates and records historical logs in the database.
 
 ---
 
-### 5️⃣ **Automated Violation Management**
+## ⚡ Developer & Local Runtime Optimizations
 
-Smart detection and processing of traffic violations.
+To ensure the codebase runs robustly without heavy configuration or external dependencies, we implemented several features:
 
-**Violation Types Tracked:**
+### 🔄 Automatic MongoDB Memory Fallback
+If the Express backend fails to connect to the cloud MongoDB URL (due to authentication errors, timeouts, or `ENOTFOUND` dns resolutions), it **automatically falls back to a locally spun up MongoDB database** via `mongodb-memory-server`. This downloads and starts an in-memory database instance automatically, allowing the app to run locally without a MongoDB database setup.
 
-| Violation | Fine | Detection Method |
-|-----------|------|------------------|
-| 🚫 Red Light Jump | ₹1,000 | Camera + Sensor |
-| ⚡ Over-speeding | ₹500-2,000 | Speed Camera |
-| 🚷 Wrong-way Driving | ₹500 | AI Detection |
-| 🚗 Illegal Parking | ₹200 | Manual/Camera |
-| 📱 Mobile While Driving | ₹1,000 | AI Detection |
-| 🪪 No License/Registration | ₹5,000 | Database Check |
-| 🍺 DUI | ₹10,000 | Manual Check |
-
-**Fine Processing System:**
-- 📸 Automatic photo capture
-- 🔢 Number plate recognition
-- 💳 Online payment integration
-- 📧 SMS/Email notifications
-- 📊 Violation history tracking
-- ⚠️ Repeat offender flagging
-
-<!-- SCREENSHOT: Violation Management -->
+### ⚡ Lazy Loading Plate Recognition Models
+Loading deep learning weights (YOLOv8) and downloading OCR models (EasyOCR) during application initialization can block Uvicorn from starting up. We refactored `LicensePlateRecognizer` to **lazy load** all models. The backend server starts instantly in under 2 seconds, and the models are initialized on demand when the first plate recognition request is dispatched.
 
 ---
 
-### 6️⃣ **Emergency Vehicle Priority (Green Corridor)**
+## 🔌 API Reference
 
-Life-saving feature for ambulances and emergency vehicles.
+### Express API Gateway (Port 8000)
 
-**Features:**
-- 🚑 Real-time ambulance tracking on map
-- 🟢 Automatic green corridor creation
-- 🚦 Traffic signal override capability
-- 📍 Optimal route calculation
-- ⏱️ ETA to hospital
-- 📱 Hospital integration & alerts
+* `GET /api/health` - Performs a quick check to see if database connections (cloud or local fallback) are active.
+* `POST /api/vehicles/register` - Registers a new vehicle with owner details.
+* `GET /api/vehicles` - Fetches all registered vehicles.
+* `GET /api/vehicles/:vehicleNumber` - Retrieves details of a single vehicle.
+* `PUT /api/vehicles/:vehicleNumber/status` - Marks a vehicle as missing/active.
+* `POST /api/vehicles/:vehicleNumber/fine` - Appends a fine event to a vehicle's history.
+* `POST /api/predict/traffic` - Proxies traffic forecasting requests to the FastAPI backend.
+* `POST /api/detect/plate` - Proxies plate recognition requests containing image uploads to the FastAPI backend.
 
-**How It Works:**
-```
-Ambulance Detected → Route Calculated → Signals Override → 
-Green Corridor Created → ETA Updated → Hospital Notified
-```
+### FastAPI AI Backend (Port 8001)
 
-<!-- SCREENSHOT: Green Corridor -->
-
----
-
-### 7️⃣ **Traffic Heatmap Visualization**
-
-Beautiful visual representation of traffic density across the city.
-
-**Features:**
-- 🗺️ Color-coded density overlay
-- 🔥 Hotspot identification
-- ⏱️ Real-time updates
-- 📜 Historical playback
-- 📊 Peak hour visualization
-- 🎨 Customizable color schemes
-
-**Color Coding:**
-- 🟢 Green: Low traffic (0-100 vehicles)
-- 🟡 Yellow: Moderate traffic (100-200 vehicles)
-- 🟠 Orange: High traffic (200-300 vehicles)
-- 🔴 Red: Severe congestion (300+ vehicles)
-
-<!-- SCREENSHOT: Traffic Heatmap -->
+* `GET /` - Root confirmation.
+* `GET /health` - Checks ML services availability status.
+* `POST /predict/traffic` - Computes a 24-hour traffic volume forecast for a specified junction.
+* `POST /detect/plate` - Accepts a file upload (`UploadFile`), performs YOLOv8 plate detection, runs EasyOCR extraction, and returns the license plate text.
 
 ---
 
-### 8️⃣ **Traffic Simulation Environment**
+## ⚖️ Custom Violation Catalog & Fines
 
-Test and optimize traffic scenarios before real-world implementation.
+Our automated violation processing tracks and manages outstanding fines linked to registered vehicle records:
 
-**Capabilities:**
-- 🎮 Virtual traffic scenario creation
-- 🧪 Algorithm testing environment
-- ⚙️ Traffic light timing optimization
-- 🔄 "What-if" scenario analysis
-- 📈 Capacity planning tools
-- 💪 System stress testing
-
-<!-- SCREENSHOT: Traffic Simulation -->
-
----
-
-## 🏗️ Technology Stack
-
-<div align="center">
-
-### Frontend
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![Ant Design](https://img.shields.io/badge/Ant_Design-0170FE?style=for-the-badge&logo=antdesign&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-
-### Mapping & Visualization
-![Google Maps](https://img.shields.io/badge/Google_Maps-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
-![React Google Maps](https://img.shields.io/badge/React_Google_Maps-61DAFB?style=for-the-badge&logo=react&logoColor=white)
-
-### Machine Learning
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit_learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
-![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
-
-### Deployment
-![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
-![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
-
-</div>
+| Violation Code | Description | Penalty | Detection Pipeline |
+|---|---|---|---|
+| **RED_LIGHT_JUMP** | Disobeying junction signals | ₹1,000 | Speed cameras + Signal sensors |
+| **OVERSPEEDING** | Exceeding limit (over 60km/h) | ₹1,000 | Radar speed tracking detectors |
+| **WRONG_WAY** | Driving against flow of traffic | ₹500 | Video surveillance frame processing |
+| **ILLEGAL_PARKING** | Parking in restricted/towing zones | ₹200 | CCTV image alerts & updates |
+| **MOBILE_DRIVING** | Distracted driving behavior | ₹1,000 | In-cabin AI camera feeds |
+| **NO_LICENSE** | No valid registration records | ₹5,000 | RTO database lookup matching |
 
 ---
 
-## 🚀 ML Model Architecture
+## 🎮 Setup & Run Guide
 
-### Training Pipeline
+### 📋 Prerequisites
+* **Python** 3.9+ installed.
+* **Node.js** (or use the pre-packaged Node bundle located in `node_bin/bin`).
 
-```mermaid
-graph LR
-    A[Bangalore Pulse Dataset] --> B[Data Preprocessing]
-    B --> C[Feature Engineering]
-    C --> D[Train/Test Split]
-    D --> E[Multiple Linear Regression]
-    E --> F[Model Validation]
-    F --> G[Hyperparameter Tuning]
-    G --> H[Production Model]
-    H --> I[Real-time Predictions]
+### 1. Backend Package Installations
+Open your terminal and install dependencies for the backends:
+
+```bash
+# Install Node.js backend packages
+PATH="./node_bin/bin:$PATH" npm install --prefix backend
+
+# Activate virtualenv and install python packages
+./venv/bin/pip install python-multipart
 ```
 
-### Model Performance Metrics
+### 2. Environment Variables
+Verify your `.env` file at the root contains the necessary configuration keys:
+```env
+REACT_APP_GOOGLE_MAPS_API_KEY=your_google_maps_key
+REACT_APP_OPENROUTE_API_KEY=your_routing_key
+MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net/flowguard_db
+```
+*Note: If `MONGODB_URL` is omitted or fails to connect, the server automatically starts an in-memory database.*
+
+### 3. Launching Services
+Run the three servers concurrently in separate terminals or in the background:
+
+#### Terminal A: Python FastAPI Backend (Port 8001)
+```bash
+# PYTHONUNBUFFERED disables buffering to log stdout outputs immediately
+PYTHONUNBUFFERED=1 ./venv/bin/python backend/main.py
+```
+
+#### Terminal B: Node.js Express Backend (Port 8000)
+```bash
+# Prepend local node binaries to system path
+PATH="./node_bin/bin:$PATH" node backend/server.js
+```
+
+#### Terminal C: React Frontend (Port 3000)
+```bash
+# BROWSER=none prevents opening browser windows automatically in container hosts
+BROWSER=none PATH="./node_bin/bin:$PATH" npm start
+```
+
+---
+
+## 📈 ML Model Performance
+
+Our ML engine maps peak hours, weekend factors, and junction IDs:
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Accuracy** | 87.3% | Correct predictions on test data |
-| **RMSE** | 15.2 vehicles | Root Mean Square Error |
-| **R² Score** | 0.89 | Coefficient of determination |
-| **MAE** | 12.4 vehicles | Mean Absolute Error |
-| **Training Time** | 2.3 seconds | Model training duration |
-| **Prediction Time** | <50ms | Real-time inference speed |
-
-### Feature Importance
-
-```
-Hour of Day          ████████████████████ 35%
-Day of Week          ███████████████ 22%
-Historical Average   ████████████ 18%
-Rush Hour Flag       ██████████ 15%
-Weekend Flag         ██████ 10%
-```
-
----
-
-## 📊 Traffic Light Control Algorithm
-
-### Dynamic Green Time Calculation
+| **Accuracy** | 87.3% | Core prediction capability on test metrics |
+| **MAE** | 12.4 vehicles | Mean Absolute Error average |
+| **Inference Time** | <50ms | Real-time response speed per prediction request |
 
 ```javascript
-// Calculate optimal green time for each junction
-greenTime = (junctionTraffic / totalTraffic) × totalCycleTime
+// Calculate optimal green time for each junction dynamically
+greenTime = (junctionTraffic / totalTraffic) * totalCycleTime
 
-// Apply constraints
+// Constraints ensure safety and throughput:
 greenTime = Math.max(20, Math.min(60, greenTime))
-
-// Where:
-// - Minimum green time: 20 seconds
-// - Maximum green time: 60 seconds
-// - Total cycle time: 180 seconds (3 minutes)
-```
-
-### Signal Cycle
-
-```
-🟢 GREEN Phase   → Traffic flows (20-60 seconds)
-🟡 YELLOW Phase  → Caution period (3 seconds)
-🔴 RED Phase     → Stop (Next junction's turn)
-```
-
-### Adaptive Features
-- ✅ Real-time traffic density adjustment
-- ✅ ML prediction integration
-- ✅ Emergency vehicle override
-- ✅ Peak hour optimization
-- ✅ Minimum wait time guarantee
-
----
-
-## 🎮 Usage Guide
-
-### 1. **Accessing the Live System**
-
-🔗 **Visit:** [https://flow-guard-ecru.vercel.app/](https://flow-guard-ecru.vercel.app/)
-
-### 2. **Navigation Menu**
-
-| Menu Item | Function |
-|-----------|----------|
-| 🚦 **Live Traffic Monitor** | Real-time traffic view with car animations |
-| 📊 **Analytics Dashboard** | Traffic statistics and insights |
-| 🚗 **Vehicle Registration** | Register new vehicles |
-| 🚨 **Violation Management** | View and process fines |
-| 🏥 **Green Corridor** | Emergency vehicle tracking |
-| 🔥 **Traffic Heatmap** | Visual density map |
-| 🎮 **Traffic Simulation** | Test scenarios |
-
-### 3. **Live Traffic Monitor Controls**
-
-**Toggle Car Visualization:**
-```
-🚗 Cars ON  → Shows animated car markers
-🚗 Cars OFF → Hides car markers (traffic lights only)
-```
-
-**Understanding the Display:**
-- **Green Dots** = Traffic light is green, vehicles flowing
-- **Yellow Dots** = Caution phase
-- **Red Dots** = Stopped traffic, congestion building
-- **Number on Light** = Current vehicle count at junction
-
-### 4. **ML Predictions Panel**
-
-Real-time information displayed:
-- 🤖 **ML Active Badge** - Model is running
-- ⏰ **Last Update Time** - Latest data refresh
-- 📊 **Total Vehicles** - Across all junctions
-- 📈 **Avg 24h** - Average predicted traffic
-- 📍 **Junction Details** - Individual junction stats
-
-### 5. **Vehicle Registration**
-
-**Step-by-step:**
-1. Click **"Vehicle Registry"** in sidebar
-2. Fill in owner details
-3. Enter vehicle information
-4. Add registration number (Format: KA-01-AB-1234)
-5. Submit form
-6. System generates unique vehicle ID
-
-### 6. **Checking Violations**
-
-1. Navigate to **"Violation Management"**
-2. Enter vehicle registration number
-3. View violation history
-4. See outstanding fines
-5. Process payment (if integrated)
-
----
-
-## 🎯 Major Junctions Monitored
-
-### Junction Details
-
-| Junction | Location | Avg Daily Traffic | Peak Hours |
-|----------|----------|-------------------|------------|
-| **Silk Board** | Hosur Road & ORR | 320 vehicles/hr | 8-10 AM, 6-8 PM |
-| **Marathahalli** | IT Corridor | 350 vehicles/hr | 8-10 AM, 6-8 PM |
-| **Koramangala** | 80 Feet Road | 280 vehicles/hr | 9-11 AM, 5-7 PM |
-| **MG Road** | City Center | 300 vehicles/hr | 10 AM-8 PM |
-| **Whitefield** | ITPL Main Road | 330 vehicles/hr | 8-10 AM, 6-9 PM |
-| **Electronic City** | Hosur Road | 310 vehicles/hr | 7-9 AM, 5-8 PM |
-
-### Coverage Map
-
-```
-                    Bangalore City
-                         ⬇️
-        ┌────────────────┴────────────────┐
-        │                                  │
-   Whitefield (🟢)              Marathahalli (🟡)
-        │                                  │
-        │         MG Road (🔵)             │
-        │              │                   │
-        │         Koramangala (🟠)        │
-        │              │                   │
-        └──────── Silk Board (🔴) ────────┘
-                       │
-               Electronic City (🟣)
+// Minimum green: 20s | Maximum green: 60s | Cycle: 180s
 ```
 
 ---
 
-## 📈 Impact & Results
+## 🤝 Contributing & Support
 
-### Traffic Flow Improvements
+We welcome contributions from the community. Please fork the repository, make changes, and open a Pull Request.
 
-```
-Before FlowGuard AI:
-╔════════════════════════════╗
-║ Average Wait Time: 8.5 min ║
-║ Congestion Level: High     ║
-║ Signal Efficiency: 62%     ║
-║ Traffic Flow: Poor         ║
-╚════════════════════════════╝
-
-After FlowGuard AI:
-╔════════════════════════════╗
-║ Average Wait Time: 4.2 min ║ ⬇️ 50% reduction
-║ Congestion Level: Moderate ║ ⬇️ Improved
-║ Signal Efficiency: 89%     ║ ⬆️ 27% increase
-║ Traffic Flow: Good         ║ ⬆️ Optimized
-╚════════════════════════════╝
-```
-
-### Key Achievements
-
-- ✅ **50% reduction** in average wait times
-- ✅ **87% accuracy** in traffic predictions
-- ✅ **27% improvement** in signal efficiency
-- ✅ **Real-time monitoring** of 6 major junctions
-- ✅ **1,000+ vehicles** tracked simultaneously
-- ✅ **24-hour** predictive capability
+* **Email:** support@flowguardai.com
+* **Website:** [https://flow-guard-ecru.vercel.app/](https://flow-guard-ecru.vercel.app/)
 
 ---
-
-## 🔮 Future Enhancements
-
-### Planned Features
-
-- 🛰️ **IoT Integration** - Real-time sensor data from junctions
-- 📱 **Mobile App** - iOS & Android applications
-- 🗣️ **Voice Alerts** - Navigation assistance
-- 🤖 **Deep Learning** - Advanced neural network models
-- 🌐 **City-wide Expansion** - Cover all Bangalore junctions
-- 🚁 **Drone Surveillance** - Aerial traffic monitoring
-- 🔗 **Smart City Integration** - Connect with other civic systems
-- 💳 **Payment Gateway** - Direct fine payment
-- 📧 **Automated Notifications** - SMS/Email alerts
-- 🎥 **Live Camera Feeds** - CCTV integration
-
-### Research & Development
-
-- 🧬 **Genetic Algorithms** for signal optimization
-- 🌊 **Traffic Flow Prediction** using LSTM networks
-- 🎯 **Accident Detection** using computer vision
-- 🚗 **Autonomous Vehicle Integration** support
-- ☁️ **Weather Impact Analysis** on traffic patterns
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community!
-
-### How to Contribute
-
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. 💾 Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. 📤 Push to the branch (`git push origin feature/AmazingFeature`)
-5. 🔀 Open a Pull Request
-
-### Areas for Contribution
-
-- 🐛 Bug fixes
-- ✨ New features
-- 📝 Documentation improvements
-- 🎨 UI/UX enhancements
-- 🧪 Testing & QA
-- 🌍 Localization (Kannada, Hindi, etc.)
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2024 FlowGuard AI
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software...
-```
-
----
-
-## 👥 Team
-
 <div align="center">
 
-**Built with ❤️ by the FlowGuard AI Team**
-
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=for-the-badge&logo=github)](https://github.com/yourusername)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/yourprofile)
-[![Twitter](https://img.shields.io/badge/Twitter-Follow-blue?style=for-the-badge&logo=twitter)](https://twitter.com/yourhandle)
-
-</div>
-
----
-
-## 📞 Contact & Support
-
-### Get in Touch
-
-- 📧 **Email:** support@flowguardai.com
-- 🌐 **Website:** [https://flow-guard-ecru.vercel.app/](https://flow-guard-ecru.vercel.app/)
-- 💬 **Discord:** Join our community
-- 📱 **Twitter:** @FlowGuardAI
-
-### Report Issues
-
-Found a bug? Have a feature request?
-
-- 🐛 [Report Bug](https://github.com/yourusername/flowguard-ai/issues/new?template=bug_report.md)
-- 💡 [Request Feature](https://github.com/yourusername/flowguard-ai/issues/new?template=feature_request.md)
-
----
-
-## 🙏 Acknowledgments
-
-- 📊 **Bangalore Pulse Dataset** - For providing traffic data
-- 🗺️ **Google Maps Platform** - For mapping services
-- 🎨 **Ant Design** - For UI components
-- 🤖 **scikit-learn** - For ML algorithms
-- 👥 **Open Source Community** - For inspiration and support
-
----
-
-<div align="center">
-
-## ⭐ Star Us!
-
-If you find FlowGuard AI useful, please consider giving us a star ⭐
-
-[![Star on GitHub](https://img.shields.io/github/stars/yourusername/flowguard-ai?style=social)](https://github.com/yourusername/flowguard-ai)
-
----
-
-### 🚦 **Making Bangalore's Traffic Smarter, One Junction at a Time** 🚦
-
-**[🚀 Try FlowGuard AI Now](https://flow-guard-ecru.vercel.app/)**
-
----
+### 🚦 Making Bangalore's Traffic Smarter, One Junction at a Time 🚦
 
 Made with 💚 in Bangalore | Powered by AI & Machine Learning
 

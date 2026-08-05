@@ -22,6 +22,8 @@ yarn-error.log*
 
 # Vercel
 .vercel
-.envvenv/
-venv_safe/
 .env
+venv/
+venv_safe/
+node_bin/
+models/

@@ -23,15 +23,30 @@ class LicensePlateRecognizer:
             model_path: Path to YOLOv8 model weights (default: yolov8n.pt)
             use_gpu: Whether to use GPU for inference
         """
-        logger.info(f"Initializing LicensePlateRecognizer with model: {model_path}")
-        try:
-            self.detector = YOLO(model_path)
-            self.reader = easyocr.Reader(['en'], gpu=use_gpu)
-            self.use_gpu = use_gpu
-            logger.info("Initialization successful")
-        except Exception as e:
-            logger.error(f"Failed to initialize models: {str(e)}")
-            raise
+        logger.info(f"Initializing LicensePlateRecognizer with model: {model_path} (lazy load)")
+        self.model_path = model_path
+        self.use_gpu = use_gpu
+        self.detector = None
+        self.reader = None
+
+    def ensure_models_loaded(self):
+        """
+        Lazily load the YOLOv8 and EasyOCR models if not already loaded.
+        """
+        if self.detector is None:
+            try:
+                logger.info(f"Loading YOLOv8 detector from {self.model_path}...")
+                self.detector = YOLO(self.model_path)
+            except Exception as e:
+                logger.error(f"Failed to load YOLOv8 detector: {str(e)}")
+                raise
+        if self.reader is None:
+            try:
+                logger.info("Loading EasyOCR reader (may download model files)...")
+                self.reader = easyocr.Reader(['en'], gpu=self.use_gpu)
+            except Exception as e:
+                logger.error(f"Failed to load EasyOCR reader: {str(e)}")
+                raise
 
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """
@@ -66,6 +81,7 @@ class LicensePlateRecognizer:
             Dictionary containing detection results and metadata
         """
         try:
+            self.ensure_models_loaded()
             # Load image
             img = cv2.imread(image_path)
             if img is None:

@@ -63,18 +63,28 @@ const connectDB = async () => {
     // Start new connection
     isConnecting = true;
     connectionPromise = (async () => {
-        try {
-            const mongoUrl = process.env.MONGODB_URL || process.env.MONGODB_URI;
+        const mongoUrl = process.env.MONGODB_URL || process.env.MONGODB_URI;
 
-            // Check if MongoDB URL is configured
-            if (!mongoUrl) {
-                const error = new Error('MongoDB connection string not configured. Please set MONGODB_URL environment variable in Vercel.');
-                console.error('❌', error.message);
+        if (!mongoUrl) {
+            console.log('⚠️ MongoDB URL not set. Initializing in-memory MongoDB database...');
+            try {
+                const { MongoMemoryServer } = require('mongodb-memory-server');
+                const mongoServer = await MongoMemoryServer.create();
+                const uri = mongoServer.getUri();
+                console.log('🌱 In-memory MongoDB Server started at:', uri);
+                await mongoose.connect(uri);
+                console.log('✅ Connected to in-memory MongoDB successfully');
+                isConnecting = false;
+                return true;
+            } catch (fallbackErr) {
+                console.error('❌ Failed to start in-memory MongoDB:', fallbackErr.message);
                 isConnecting = false;
                 connectionPromise = null;
-                throw error;
+                throw fallbackErr;
             }
+        }
 
+        try {
             // Disable mongoose buffering globally for serverless
             mongoose.set('bufferCommands', false);
 
@@ -83,9 +93,9 @@ const connectDB = async () => {
             console.log('🔄 Attempting MongoDB connection to:', urlForLogging);
 
             await mongoose.connect(mongoUrl, {
-                serverSelectionTimeoutMS: 15000, // Increased to 15 seconds
+                serverSelectionTimeoutMS: 5000, // Reduced to 5 seconds for faster local feedback
                 socketTimeoutMS: 45000, // 45 seconds
-                connectTimeoutMS: 15000, // 15 seconds
+                connectTimeoutMS: 5000, // 5 seconds
                 maxPoolSize: 10, // Maintain up to 10 socket connections
                 minPoolSize: 1, // Maintain at least 1 socket connection
                 bufferCommands: false, // Disable mongoose buffering
@@ -95,19 +105,26 @@ const connectDB = async () => {
             return true;
         } catch (err) {
             console.error('❌ MongoDB Connection Error:', err.message);
-            console.error('Error details:', {
-                name: err.name,
-                code: err.code,
-                codeName: err.codeName,
-                message: err.message
-            });
-            isConnecting = false;
-            connectionPromise = null;
-            // Close any partial connection
-            if (mongoose.connection.readyState !== 0) {
-                await mongoose.connection.close().catch(() => { });
+            console.log('🔄 Falling back to in-memory MongoDB database...');
+            try {
+                const { MongoMemoryServer } = require('mongodb-memory-server');
+                const mongoServer = await MongoMemoryServer.create();
+                const uri = mongoServer.getUri();
+                console.log('🌱 In-memory MongoDB Server started at:', uri);
+                await mongoose.connect(uri);
+                console.log('✅ Connected to in-memory MongoDB successfully');
+                isConnecting = false;
+                return true;
+            } catch (fallbackErr) {
+                console.error('❌ Failed to start in-memory MongoDB:', fallbackErr.message);
+                isConnecting = false;
+                connectionPromise = null;
+                // Close any partial connection
+                if (mongoose.connection.readyState !== 0) {
+                    await mongoose.connection.close().catch(() => { });
+                }
+                throw err;
             }
-            throw err;
         }
     })();
 
